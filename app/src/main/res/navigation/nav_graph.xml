@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/gamesFragment">
+
+    <fragment
+        android:id="@+id/gamesFragment"
+        android:name="by.toxic.carstat.GamesFragment"
+        android:label="@string/games_title">
+        <action
+            android:id="@+id/action_gamesFragment_to_viewGameFragment"
+            app:destination="@id/viewGameFragment" />
+        <action
+            android:id="@+id/action_gamesFragment_to_editGameFragment"
+            app:destination="@id/editGameFragment" />
+    </fragment>
+    <fragment
+        android:id="@+id/playersFragment"
+        android:name="by.toxic.carstat.PlayersFragment"
+        android:label="@string/players_title">
+        <action
+            android:id="@+id/action_playersFragment_to_playerProfileFragment"
+            app:destination="@id/playerProfileFragment" />
+        <action
+            android:id="@+id/action_playersFragment_to_editPlayerFragment"
+            app:destination="@id/editPlayerFragment" />
+    </fragment>
+    <fragment
+        android:id="@+id/addFragment"
+        android:name="by.toxic.carstat.AddFragment"
+        android:label="@string/add_button" />
+    <fragment
+        android:id="@+id/statisticsFragment"
+        android:name="by.toxic.carstat.StatisticsFragment"
+        android:label="@string/stats_title" />
+    <fragment
+        android:id="@+id/settingsFragment"
+        android:name="by.toxic.carstat.SettingsFragment"
+        android:label="@string/settings" />
+    <fragment
+        android:id="@+id/editGameFragment"
+        android:name="by.toxic.carstat.EditGameFragment"
+        android:label="@string/edit_game" />
+    <fragment
+        android:id="@+id/editPlayerFragment"
+        android:name="by.toxic.carstat.EditPlayerFragment"
+        android:label="@string/edit_player">
+        <argument
+            android:name="playerId"
+            app:argType="integer" />
+    </fragment>
+    <fragment
+        android:id="@+id/playerProfileFragment"
+        android:name="by.toxic.carstat.PlayerProfileFragment"
+        android:label="@string/players_title">
+        <argument
+            android:name="playerId"
+            app:argType="integer" />
+        <action
+            android:id="@+id/action_playerProfileFragment_to_editPlayerFragment"
+            app:destination="@id/editPlayerFragment" />
+    </fragment>
+    <fragment
+        android:id="@+id/viewGameFragment"
+        android:name="by.toxic.carstat.ViewGameFragment"
+        android:label="@string/view_game">
+        <argument
+            android:name="gameId"
+            app:argType="integer" />
+        <action
+            android:id="@+id/action_viewGameFragment_to_editGameFragment"
+            app:destination="@id/editGameFragment" />
+    </fragment>
+</navigation>

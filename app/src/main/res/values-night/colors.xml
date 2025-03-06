@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Цвета для тёмной темы в голубых тонах -->
+    <color name="primary">#64B5F6</color>          <!-- Голубой для тёмной темы (кнопки, акценты) -->
+    <color name="primary_variant">#0288D1</color>   <!-- Более тёмный голубой (для выделения) -->
+    <color name="secondary">#4FC3F7</color>        <!-- Светлый голубой (второстепенные элементы) -->
+    <color name="background">#0D1B2A</color>       <!-- Тёмный фон с голубоватым оттенком -->
+    <color name="surface">#1E2A38</color>          <!-- Тёмно-голубая поверхность для остальных элементов -->
+    <color name="card_surface">#263548</color>      <!-- Новый тёмно-голубой для подложки CardView -->
+    <color name="on_primary">#FFFFFF</color>       <!-- Белый текст на primary -->
+    <color name="on_background">#E0E0E0</color>    <!-- Светлый текст на фоне -->
+    <color name="on_surface">#E0E0E0</color>       <!-- Светлый текст на поверхностях -->
+</resources>
