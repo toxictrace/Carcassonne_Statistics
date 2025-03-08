@@ -58,4 +58,5 @@
     <!-- Новые строки -->
     <string name="settings">Settings</string>
     <string name="view_game">View Game</string>
+    <string name="no_players_left">All players have already been added</string>
 </resources>

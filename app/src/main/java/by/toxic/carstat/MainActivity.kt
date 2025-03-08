@@ -61,8 +61,8 @@ class MainActivity : AppCompatActivity() {
                                     }
                                     R.id.editGameFragment -> {
                                         Log.d("MainActivity", "Adding player in EditGameFragment")
-                                        val fragment = navHostFragment.childFragmentManager.primaryNavigationFragment as? EditGameFragment
-                                        fragment?.addPlayerFromNavBar() ?: Log.e("MainActivity", "EditGameFragment not found in primary navigation")
+                                        val fragment = supportFragmentManager.findFragmentById(R.id.nav_host_fragment) as? EditGameFragment
+                                        fragment?.addPlayer() ?: Log.e("MainActivity", "EditGameFragment not found in primary navigation")
                                         false
                                     }
                                     R.id.viewGameFragment -> {

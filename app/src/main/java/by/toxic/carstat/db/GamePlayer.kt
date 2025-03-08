@@ -12,7 +12,7 @@ import androidx.room.Index
             entity = Game::class,
             parentColumns = ["id"],
             childColumns = ["gameId"],
-            onDelete = ForeignKey.CASCADE // Каскадное удаление
+            onDelete = ForeignKey.CASCADE
         ),
         ForeignKey(
             entity = Player::class,
@@ -23,7 +23,7 @@ import androidx.room.Index
     indices = [Index(value = ["playerId"])]
 )
 data class GamePlayer(
-    val gameId: Int,
-    val playerId: Int,
-    val score: Int
+    var gameId: Int,  // Изменено с val на var
+    var playerId: Int, // Изменено с val на var
+    var score: Int    // Изменено с val на var
 )
