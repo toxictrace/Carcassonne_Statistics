@@ -7,6 +7,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
+import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.findNavController
@@ -66,8 +67,7 @@ class EditGameFragment : Fragment() {
                 }
             } else {
                 tempGamePlayers.clear()
-                tempGamePlayers.add(GamePlayer(0, 0, 0))
-                tempGamePlayers.add(GamePlayer(0, 0, 0))
+                tempGamePlayers.add(GamePlayer(0, 0, 0)) // Только одна строка для новой игры
             }
             playerAdapter.notifyDataSetChanged()
         }
@@ -80,7 +80,9 @@ class EditGameFragment : Fragment() {
                 players,
                 gameId,
                 onSuccess = { findNavController().navigateUp() },
-                onError = { /* Обработка ошибки, например, Toast */ }
+                onError = { error ->
+                    Toast.makeText(context, getString(R.string.save_game_error, error), Toast.LENGTH_SHORT).show()
+                }
             )
         }
     }
@@ -102,9 +104,15 @@ class EditGameFragment : Fragment() {
         _binding = null
     }
 
-    fun addPlayer() { // Публичный метод для вызова из MainActivity через NavBar
-        tempGamePlayers.add(GamePlayer(0, 0, 0))
-        playerAdapter.notifyItemInserted(tempGamePlayers.size - 1)
+    fun addPlayerFromNavBar() {
+        val selectedIds = tempGamePlayers.map { it.playerId }.filter { it != 0 }
+        val remainingPlayers = tempPlayers.filter { !selectedIds.contains(it.id) }
+        if (remainingPlayers.isNotEmpty()) {
+            tempGamePlayers.add(GamePlayer(0, 0, 0))
+            playerAdapter.notifyItemInserted(tempGamePlayers.size - 1)
+        } else {
+            Toast.makeText(context, getString(R.string.no_more_players), Toast.LENGTH_SHORT).show()
+        }
     }
 
     inner class PlayerAdapter : RecyclerView.Adapter<GamePlayerViewHolder>() {

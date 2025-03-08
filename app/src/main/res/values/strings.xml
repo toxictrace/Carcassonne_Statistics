@@ -55,8 +55,9 @@
     <string name="save_game_error">Error: %s</string>
     <string name="exit_app_title">Exit Application</string>
     <string name="exit_app_message">Are you sure you want to exit the application?</string>
-    <!-- Новые строки -->
     <string name="settings">Settings</string>
     <string name="view_game">View Game</string>
-    <string name="no_players_left">All players have already been added</string>
+    <string name="no_more_players">All players have already been added</string>
+    <!-- Новая строка для EditGameFragment -->
+    <string name="confirm_discard_changes">Are you sure you want to discard changes and return to the previous screen?</string>
 </resources>

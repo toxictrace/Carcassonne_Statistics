@@ -3,6 +3,8 @@ package by.toxic.carstat
 import android.content.res.Configuration
 import android.os.Bundle
 import android.util.Log
+import androidx.activity.OnBackPressedCallback
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.navigation.NavController
 import androidx.navigation.fragment.NavHostFragment
@@ -61,8 +63,8 @@ class MainActivity : AppCompatActivity() {
                                     }
                                     R.id.editGameFragment -> {
                                         Log.d("MainActivity", "Adding player in EditGameFragment")
-                                        val fragment = supportFragmentManager.findFragmentById(R.id.nav_host_fragment) as? EditGameFragment
-                                        fragment?.addPlayer() ?: Log.e("MainActivity", "EditGameFragment not found in primary navigation")
+                                        val fragment = navHostFragment.childFragmentManager.primaryNavigationFragment as? EditGameFragment
+                                        fragment?.addPlayerFromNavBar() ?: Log.e("MainActivity", "EditGameFragment not found in primary navigation")
                                         false
                                     }
                                     R.id.viewGameFragment -> {
@@ -93,10 +95,44 @@ class MainActivity : AppCompatActivity() {
                             }
                         }
                     }
+
+                    // Настройка обработки нажатия кнопки "Назад"
+                    setupBackPressedHandler(navCtrl)
                 } ?: Log.e("MainActivity", "NavController is null!")
             } catch (e: Exception) {
                 Log.e("MainActivity", "Error initializing NavController: ${e.message}")
             }
         }
+    }
+
+    private fun setupBackPressedHandler(navController: NavController) {
+        val callback = object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                when (navController.currentDestination?.id) {
+                    R.id.gamesFragment, R.id.statisticsFragment, R.id.settingsFragment -> {
+                        AlertDialog.Builder(this@MainActivity)
+                            .setTitle(getString(R.string.exit_app_title))
+                            .setMessage(getString(R.string.exit_app_message))
+                            .setPositiveButton(getString(R.string.yes)) { _, _ -> finish() }
+                            .setNegativeButton(getString(R.string.no), null)
+                            .show()
+                    }
+                    R.id.editGameFragment -> {
+                        AlertDialog.Builder(this@MainActivity)
+                            .setTitle(getString(R.string.confirm_exit_title))
+                            .setMessage(getString(R.string.confirm_discard_changes))
+                            .setPositiveButton(getString(R.string.yes)) { _, _ ->
+                                navController.navigateUp()
+                            }
+                            .setNegativeButton(getString(R.string.no), null)
+                            .show()
+                    }
+                    else -> {
+                        navController.navigateUp() // По умолчанию возвращаемся на предыдущий экран
+                    }
+                }
+            }
+        }
+        onBackPressedDispatcher.addCallback(this, callback)
     }
 }
