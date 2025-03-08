@@ -17,6 +17,9 @@ interface PlayerDao {
     @Insert
     suspend fun insertPlayer(player: Player): Long
 
+    @Insert
+    suspend fun insertPlayers(players: List<Player>): List<Long>
+
     @Update
     suspend fun updatePlayer(player: Player)
 
