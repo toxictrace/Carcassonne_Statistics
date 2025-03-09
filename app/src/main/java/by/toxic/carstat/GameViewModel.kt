@@ -80,7 +80,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     fun saveGame(
         date: String,
-        players: List<Pair<Int, Int>>,
+        players: List<Triple<Int, Int, String?>>,
         gameId: Int? = null,
         onSuccess: () -> Unit,
         onError: (String) -> Unit
@@ -88,24 +88,41 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             try {
                 val formattedDate = formatDateForStorage(date)
-                Log.d("GameViewModel", "Saving game with date: $formattedDate, gameId: $gameId")
+                Log.d("GameViewModel", "Saving game with date: $formattedDate, gameId: $gameId, players: $players")
+
+                if (players.isEmpty()) {
+                    onError("No players selected")
+                    return@launch
+                }
+
+                if (players.any { it.first == 0 }) {
+                    onError("All players must be selected")
+                    return@launch
+                }
+
+                if (players.any { it.third == null && it.first != 0 }) {
+                    onError("All players must have a color selected")
+                    return@launch
+                }
+
                 val playerIds = players.map { it.first }
                 if (playerIds.distinct().size != playerIds.size) {
                     onError("Duplicate players are not allowed")
                     return@launch
                 }
+
                 if (gameId != null) {
                     db.gameDao().updateGame(Game(id = gameId, date = formattedDate))
                     db.gameDao().deleteGamePlayers(gameId)
-                    val gamePlayers = players.map { (playerId, score) ->
-                        GamePlayer(gameId, playerId, score)
+                    val gamePlayers = players.map { (playerId, score, color) ->
+                        GamePlayer(gameId, playerId, score, color)
                     }
                     db.gameDao().insertGamePlayers(gamePlayers)
                     Log.d("GameViewModel", "Game updated successfully with ID: $gameId")
                 } else {
                     val newGameId = db.gameDao().insertGame(Game(date = formattedDate))
-                    val gamePlayers = players.map { (playerId, score) ->
-                        GamePlayer(newGameId.toInt(), playerId, score)
+                    val gamePlayers = players.map { (playerId, score, color) ->
+                        GamePlayer(newGameId.toInt(), playerId, score, color)
                     }
                     db.gameDao().insertGamePlayers(gamePlayers)
                     Log.d("GameViewModel", "New game saved with ID: $newGameId")

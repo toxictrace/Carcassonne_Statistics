@@ -50,6 +50,7 @@ class GamesFragment : Fragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.allGames.collectLatest { games ->
                 adapter.updateGames(games)
+                adapter.notifyDataSetChanged() // Явное обновление для надёжности
             }
         }
     }

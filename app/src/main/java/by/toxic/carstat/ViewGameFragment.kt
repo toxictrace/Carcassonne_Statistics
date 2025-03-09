@@ -1,6 +1,10 @@
 package by.toxic.carstat
 
+import android.graphics.Color
 import android.os.Bundle
+import android.text.SpannableString
+import android.text.Spanned
+import android.text.style.ForegroundColorSpan
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -10,6 +14,7 @@ import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import by.toxic.carstat.databinding.FragmentViewGameBinding
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -49,9 +54,21 @@ class ViewGameFragment : Fragment() {
                 if (game != null) {
                     binding.dateLabel.text = viewModel.formatDateForDisplay(game.game.date)
                     viewModel.allPlayers.collectLatest { players ->
-                        val playerData = game.gamePlayers.map { gp ->
+                        val playerData = game.gamePlayers.sortedByDescending { it.score }.map { gp ->
                             val player = players.find { it.id == gp.playerId }
-                            "${player?.name ?: "Unknown"} - ${gp.score}"
+                            val name = player?.name ?: "Unknown"
+                            val color = when (gp.color) {
+                                "Yellow" -> Color.YELLOW
+                                "Red" -> Color.RED
+                                "Green" -> Color.GREEN
+                                "Blue" -> Color.BLUE
+                                "Black" -> Color.BLACK
+                                "Gray" -> Color.GRAY
+                                else -> Color.BLACK
+                            }
+                            val spannableName = SpannableString("$name - ${gp.score}")
+                            spannableName.setSpan(ForegroundColorSpan(color), 0, name.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                            spannableName
                         }
                         adapter.updatePlayers(playerData)
                     }
@@ -74,8 +91,8 @@ class ViewGameFragment : Fragment() {
     }
 }
 
-class ViewGamePlayerAdapter : androidx.recyclerview.widget.RecyclerView.Adapter<ViewGamePlayerAdapter.ViewHolder>() {
-    private var players: List<String> = emptyList()
+class ViewGamePlayerAdapter : RecyclerView.Adapter<ViewGamePlayerAdapter.ViewHolder>() {
+    private var players: List<SpannableString> = emptyList()
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val view = LayoutInflater.from(parent.context).inflate(android.R.layout.simple_list_item_1, parent, false)
@@ -88,13 +105,13 @@ class ViewGamePlayerAdapter : androidx.recyclerview.widget.RecyclerView.Adapter<
 
     override fun getItemCount(): Int = players.size
 
-    fun updatePlayers(newPlayers: List<String>) {
+    fun updatePlayers(newPlayers: List<SpannableString>) {
         players = newPlayers
         notifyDataSetChanged()
     }
 
-    inner class ViewHolder(itemView: View) : androidx.recyclerview.widget.RecyclerView.ViewHolder(itemView) {
-        fun bind(playerData: String) {
+    inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+        fun bind(playerData: SpannableString) {
             itemView.findViewById<android.widget.TextView>(android.R.id.text1).text = playerData
         }
     }

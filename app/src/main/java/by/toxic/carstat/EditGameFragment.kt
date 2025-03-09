@@ -1,16 +1,23 @@
 package by.toxic.carstat
 
 import android.app.DatePickerDialog
+import android.content.Context
+import android.graphics.Color
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.inputmethod.InputMethodManager
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
+import android.widget.PopupMenu
 import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
+import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import by.toxic.carstat.databinding.FragmentEditGameBinding
@@ -18,7 +25,7 @@ import by.toxic.carstat.databinding.ItemGamePlayerBinding
 import by.toxic.carstat.db.GamePlayer
 import by.toxic.carstat.db.Player
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.launch
 import java.util.Calendar
 
 class EditGameFragment : Fragment() {
@@ -29,6 +36,15 @@ class EditGameFragment : Fragment() {
     private val tempGamePlayers = mutableListOf<GamePlayer>()
     private val tempPlayers = mutableListOf<Player>()
     private var gameId: Int? = null
+
+    private val availableColors = listOf(
+        "Yellow" to Color.YELLOW,
+        "Red" to Color.RED,
+        "Green" to Color.GREEN,
+        "Blue" to Color.BLUE,
+        "Black" to Color.BLACK,
+        "Gray" to Color.GRAY
+    )
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -53,7 +69,7 @@ class EditGameFragment : Fragment() {
             showDatePickerDialog()
         }
 
-        runBlocking {
+        viewLifecycleOwner.lifecycleScope.launch {
             tempPlayers.clear()
             tempPlayers.addAll(gameViewModel.allPlayers.first())
             if (gameId != null) {
@@ -61,26 +77,42 @@ class EditGameFragment : Fragment() {
                 gameWithPlayers?.let {
                     tempGamePlayers.clear()
                     tempGamePlayers.addAll(it.gamePlayers.map { gp ->
-                        GamePlayer(gameId!!, gp.playerId, gp.score)
+                        GamePlayer(gameId!!, gp.playerId, gp.score, gp.color)
                     })
                     binding.dateLabel.text = gameViewModel.formatDateForDisplay(it.game.date)
                 }
             } else {
                 tempGamePlayers.clear()
-                tempGamePlayers.add(GamePlayer(0, 0, 0)) // Только одна строка для новой игры
+                tempGamePlayers.add(GamePlayer(0, 0, 0))
             }
-            playerAdapter.notifyDataSetChanged()
+            playerAdapter.updatePlayers(tempGamePlayers)
+            Log.d("EditGameFragment", "Data loaded: ${tempGamePlayers.size} players")
         }
 
         binding.saveButton.setOnClickListener {
             val date = binding.dateLabel.text.toString()
-            val players = tempGamePlayers.map { Pair(it.playerId, it.score) }
+            val players = tempGamePlayers.map { Triple(it.playerId, it.score, it.color) }
+            Log.d("EditGameFragment", "Save button clicked, players: $players")
+            if (players.isEmpty() || players.all { it.first == 0 }) {
+                Toast.makeText(context, getString(R.string.no_players_error), Toast.LENGTH_SHORT).show()
+                Log.e("EditGameFragment", "Cannot save: no valid players")
+                return@setOnClickListener
+            }
+            if (tempGamePlayers.any { it.color == null && it.playerId != 0 }) {
+                Toast.makeText(context, getString(R.string.select_color_error), Toast.LENGTH_SHORT).show()
+                Log.e("EditGameFragment", "Cannot save: color not selected for some players")
+                return@setOnClickListener
+            }
             gameViewModel.saveGame(
                 date,
                 players,
                 gameId,
-                onSuccess = { findNavController().navigateUp() },
+                onSuccess = {
+                    Log.d("EditGameFragment", "Game saved successfully")
+                    findNavController().navigateUp()
+                },
                 onError = { error ->
+                    Log.e("EditGameFragment", "Save error: $error")
                     Toast.makeText(context, getString(R.string.save_game_error, error), Toast.LENGTH_SHORT).show()
                 }
             )
@@ -108,100 +140,164 @@ class EditGameFragment : Fragment() {
         val selectedIds = tempGamePlayers.map { it.playerId }.filter { it != 0 }
         val remainingPlayers = tempPlayers.filter { !selectedIds.contains(it.id) }
         if (remainingPlayers.isNotEmpty()) {
-            tempGamePlayers.add(GamePlayer(0, 0, 0))
-            playerAdapter.notifyItemInserted(tempGamePlayers.size - 1)
+            val newList = tempGamePlayers.toMutableList().apply { add(GamePlayer(0, 0, 0)) }
+            playerAdapter.updatePlayers(newList)
+            tempGamePlayers.clear()
+            tempGamePlayers.addAll(newList)
+            Log.d("EditGameFragment", "Player added, new count: ${tempGamePlayers.size}")
         } else {
             Toast.makeText(context, getString(R.string.no_more_players), Toast.LENGTH_SHORT).show()
         }
     }
 
     inner class PlayerAdapter : RecyclerView.Adapter<GamePlayerViewHolder>() {
+        private val playersList = mutableListOf<GamePlayer>()
+
+        fun updatePlayers(newPlayers: List<GamePlayer>) {
+            val diffResult = DiffUtil.calculateDiff(PlayerDiffCallback(playersList, newPlayers))
+            playersList.clear()
+            playersList.addAll(newPlayers)
+            diffResult.dispatchUpdatesTo(this)
+        }
+
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): GamePlayerViewHolder {
             val binding = ItemGamePlayerBinding.inflate(LayoutInflater.from(parent.context), parent, false)
-            return GamePlayerViewHolder(binding)
+            return GamePlayerViewHolder(binding, this)
         }
 
         override fun onBindViewHolder(holder: GamePlayerViewHolder, position: Int) {
-            holder.bind(position)
+            holder.bind(playersList[position])
         }
 
-        override fun getItemCount(): Int = tempGamePlayers.size
+        override fun getItemCount(): Int = playersList.size
     }
 
-    inner class GamePlayerViewHolder(private val binding: ItemGamePlayerBinding) : RecyclerView.ViewHolder(binding.root) {
-        private var isBinding = false
-        private var isUpdatingText = false
-        private var currentPosition: Int = -1
-        private lateinit var playerOptions: List<String>
-        private lateinit var availablePlayers: List<Player>
+    inner class PlayerDiffCallback(
+        private val oldList: List<GamePlayer>,
+        private val newList: List<GamePlayer>
+    ) : DiffUtil.Callback() {
+        override fun getOldListSize() = oldList.size
+        override fun getNewListSize() = newList.size
+        override fun areItemsTheSame(oldItemPosition: Int, newItemPosition: Int) =
+            oldList[oldItemPosition].playerId == newList[newItemPosition].playerId
+        override fun areContentsTheSame(oldItemPosition: Int, newItemPosition: Int) =
+            oldList[oldItemPosition] == newList[newItemPosition]
+    }
+
+    inner class GamePlayerViewHolder(
+        private val binding: ItemGamePlayerBinding,
+        private val adapter: PlayerAdapter
+    ) : RecyclerView.ViewHolder(binding.root) {
         private val textWatcher = object : android.text.TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
             override fun afterTextChanged(s: android.text.Editable?) {
-                if (!isUpdatingText && adapterPosition >= 0) {
+                val pos = bindingAdapterPosition
+                if (pos != RecyclerView.NO_POSITION) {
                     val score = s.toString().toIntOrNull() ?: 0
-                    tempGamePlayers[adapterPosition].score = score
-                    println("DEBUG: Score updated for position $adapterPosition: $score")
+                    tempGamePlayers[pos].score = score
+                    Log.d("EditGameFragment", "Score updated at position $pos: $score")
                 }
             }
         }
 
-        fun bind(position: Int) {
-            isBinding = true
-            currentPosition = position
-            println("DEBUG: Binding position $position, playerId=${tempGamePlayers[position].playerId}")
-
+        fun bind(gamePlayer: GamePlayer) {
+            val position = bindingAdapterPosition
             val selectedIds = tempGamePlayers.mapIndexed { index, pair ->
                 if (index != position && pair.playerId != 0) pair.playerId else null
             }.filterNotNull()
-            val currentPlayerId = tempGamePlayers[position].playerId
-            availablePlayers = tempPlayers.filter { !selectedIds.contains(it.id) || it.id == currentPlayerId }
-            println("DEBUG: Available players: ${availablePlayers.map { it.name }}, selectedIds=$selectedIds")
+            val currentPlayerId = gamePlayer.playerId
+            val availablePlayers = tempPlayers.filter { !selectedIds.contains(it.id) || it.id == currentPlayerId }
 
-            playerOptions = listOf("") + availablePlayers.map { it.name }
-            val adapter = ArrayAdapter(binding.root.context, android.R.layout.simple_spinner_item, playerOptions)
-            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-            binding.playerSpinner.adapter = adapter
+            val playerOptions = listOf("") + availablePlayers.map { it.name }
+            val playerAdapter = ArrayAdapter(binding.root.context, android.R.layout.simple_spinner_item, playerOptions)
+            playerAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            binding.playerSpinner.adapter = playerAdapter
             binding.playerSpinner.isEnabled = true
 
             val selectedIndex = if (currentPlayerId == 0) 0 else availablePlayers.indexOfFirst { it.id == currentPlayerId } + 1
             binding.playerSpinner.setSelection(selectedIndex, false)
 
-            binding.playerSpinner.setOnItemSelectedListener(object : AdapterView.OnItemSelectedListener {
+            binding.playerSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
                 override fun onItemSelected(parent: AdapterView<*>, view: View?, pos: Int, id: Long) {
-                    if (!isBinding && pos in playerOptions.indices) {
-                        println("DEBUG: Spinner selected at position $currentPosition, selectedPos=$pos")
-                        val oldPlayerId = tempGamePlayers[currentPosition].playerId
+                    val posInList = bindingAdapterPosition
+                    if (posInList != RecyclerView.NO_POSITION && pos in playerOptions.indices) {
+                        val oldPlayerId = tempGamePlayers[posInList].playerId
                         val newPlayerId = if (pos == 0) 0 else availablePlayers[pos - 1].id
                         if (oldPlayerId != newPlayerId) {
-                            tempGamePlayers[currentPosition].playerId = newPlayerId
-                            println("DEBUG: Player selected: ${if (pos == 0) "None" else availablePlayers[pos - 1].name}, id=$newPlayerId")
-                            playerAdapter.notifyItemChanged(currentPosition)
+                            tempGamePlayers[posInList].playerId = newPlayerId
+                            if (newPlayerId == 0) tempGamePlayers[posInList].color = null
+                            binding.colorSquare.visibility = if (newPlayerId != 0) View.VISIBLE else View.GONE
+                            updateColorSquare()
+                            Log.d("EditGameFragment", "Player selected at $posInList: $newPlayerId")
                         }
                     }
                 }
 
                 override fun onNothingSelected(parent: AdapterView<*>) {}
-            })
+            }
+
+            binding.colorSquare.visibility = if (currentPlayerId != 0) View.VISIBLE else View.GONE
+            updateColorSquare()
+
+            binding.colorSquare.setOnClickListener {
+                val pos = bindingAdapterPosition
+                if (pos != RecyclerView.NO_POSITION) {
+                    val popup = PopupMenu(requireContext(), binding.colorSquare)
+                    popup.menu.add(0, 0, 0, "None")
+                    val usedColors = tempGamePlayers.mapNotNull { it.color }.filter { it != tempGamePlayers[pos].color }
+                    val available = availableColors.filter { it.first !in usedColors }
+                    available.forEachIndexed { index, (colorName, _) ->
+                        popup.menu.add(0, index + 1, 0, colorName)
+                    }
+                    popup.setOnMenuItemClickListener { item ->
+                        val selectedColor = if (item.itemId == 0) null else available[item.itemId - 1].first
+                        tempGamePlayers[pos].color = selectedColor
+                        updateColorSquare()
+                        adapter.updatePlayers(tempGamePlayers.toList())
+                        Log.d("EditGameFragment", "Color selected at $pos: $selectedColor")
+                        true
+                    }
+                    popup.show()
+                }
+            }
 
             binding.scoreEditText.removeTextChangedListener(textWatcher)
-            isUpdatingText = true
-            binding.scoreEditText.setText(if (tempGamePlayers[position].score > 0) tempGamePlayers[position].score.toString() else "")
-            isUpdatingText = false
+            binding.scoreEditText.setText(if (gamePlayer.score > 0) gamePlayer.score.toString() else "")
             binding.scoreEditText.isEnabled = true
             binding.scoreEditText.isFocusable = true
             binding.scoreEditText.isFocusableInTouchMode = true
             binding.scoreEditText.addTextChangedListener(textWatcher)
 
-            binding.removeButton.setOnClickListener {
-                val pos = adapterPosition
-                if (pos != RecyclerView.NO_POSITION) {
-                    tempGamePlayers.removeAt(pos)
-                    playerAdapter.notifyItemRemoved(pos)
-                    playerAdapter.notifyItemRangeChanged(pos, playerAdapter.itemCount)
+            binding.scoreEditText.setOnFocusChangeListener { _, hasFocus ->
+                if (hasFocus) {
+                    val imm = context?.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+                    imm?.showSoftInput(binding.scoreEditText, InputMethodManager.SHOW_IMPLICIT)
                 }
             }
-            isBinding = false
+
+            binding.removeButton.setOnClickListener {
+                val pos = bindingAdapterPosition
+                if (pos != RecyclerView.NO_POSITION) {
+                    val newList = tempGamePlayers.toMutableList().apply { removeAt(pos) }
+                    adapter.updatePlayers(newList)
+                    tempGamePlayers.clear()
+                    tempGamePlayers.addAll(newList)
+                    Log.d("EditGameFragment", "Player removed at position $pos")
+                }
+            }
+        }
+
+        private fun updateColorSquare() {
+            val pos = bindingAdapterPosition
+            if (pos != RecyclerView.NO_POSITION) {
+                val colorName = tempGamePlayers[pos].color
+                binding.colorSquare.setBackgroundColor(
+                    colorName?.let { name ->
+                        availableColors.find { it.first == name }?.second ?: Color.BLACK
+                    } ?: Color.LTGRAY
+                )
+            }
         }
     }
 }

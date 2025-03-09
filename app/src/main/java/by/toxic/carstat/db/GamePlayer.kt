@@ -23,7 +23,8 @@ import androidx.room.Index
     indices = [Index(value = ["playerId"])]
 )
 data class GamePlayer(
-    var gameId: Int,  // Изменено с val на var
-    var playerId: Int, // Изменено с val на var
-    var score: Int    // Изменено с val на var
+    var gameId: Int,
+    var playerId: Int,
+    var score: Int,
+    var color: String? = null // Новое поле для цвета
 )
