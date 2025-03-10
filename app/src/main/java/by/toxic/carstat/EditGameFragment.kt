@@ -93,16 +93,29 @@ class EditGameFragment : Fragment() {
             val date = binding.dateLabel.text.toString()
             val players = tempGamePlayers.map { Triple(it.playerId, it.score, it.color) }
             Log.d("EditGameFragment", "Save button clicked, players: $players")
-            if (players.isEmpty() || players.all { it.first == 0 }) {
-                Toast.makeText(context, getString(R.string.no_players_error), Toast.LENGTH_SHORT).show()
-                Log.e("EditGameFragment", "Cannot save: no valid players")
+
+            // Проверка на минимальное количество игроков (2)
+            val validPlayers = players.filter { it.first != 0 }
+            if (validPlayers.size < 2) {
+                Toast.makeText(context, getString(R.string.minimum_players_error), Toast.LENGTH_SHORT).show()
+                Log.e("EditGameFragment", "Cannot save: less than 2 players")
                 return@setOnClickListener
             }
+
+            // Проверка на минимальные очки (> 1)
+            if (validPlayers.any { it.second <= 0 }) {
+                Toast.makeText(context, getString(R.string.minimum_score_error), Toast.LENGTH_SHORT).show()
+                Log.e("EditGameFragment", "Cannot save: some scores are <= 1")
+                return@setOnClickListener
+            }
+
+            // Проверка на выбор цвета
             if (tempGamePlayers.any { it.color == null && it.playerId != 0 }) {
                 Toast.makeText(context, getString(R.string.select_color_error), Toast.LENGTH_SHORT).show()
                 Log.e("EditGameFragment", "Cannot save: color not selected for some players")
                 return@setOnClickListener
             }
+
             gameViewModel.saveGame(
                 date,
                 players,
@@ -158,6 +171,7 @@ class EditGameFragment : Fragment() {
             playersList.clear()
             playersList.addAll(newPlayers)
             diffResult.dispatchUpdatesTo(this)
+            notifyItemRangeChanged(0, itemCount)
         }
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): GamePlayerViewHolder {
@@ -179,9 +193,12 @@ class EditGameFragment : Fragment() {
         override fun getOldListSize() = oldList.size
         override fun getNewListSize() = newList.size
         override fun areItemsTheSame(oldItemPosition: Int, newItemPosition: Int) =
-            oldList[oldItemPosition].playerId == newList[newItemPosition].playerId
+            oldList[oldItemPosition].playerId == newList[newItemPosition].playerId &&
+                    oldList[oldItemPosition].gameId == newList[newItemPosition].gameId
         override fun areContentsTheSame(oldItemPosition: Int, newItemPosition: Int) =
-            oldList[oldItemPosition] == newList[newItemPosition]
+            oldList[oldItemPosition].score == newList[newItemPosition].score &&
+                    oldList[oldItemPosition].color == newList[newItemPosition].color &&
+                    oldList[oldItemPosition].playerId == newList[newItemPosition].playerId
     }
 
     inner class GamePlayerViewHolder(
@@ -207,7 +224,7 @@ class EditGameFragment : Fragment() {
                 if (index != position && pair.playerId != 0) pair.playerId else null
             }.filterNotNull()
             val currentPlayerId = gamePlayer.playerId
-            val availablePlayers = tempPlayers.filter { !selectedIds.contains(it.id) || it.id == currentPlayerId }
+            val availablePlayers = tempPlayers.filter { !selectedIds.contains(it.id) }
 
             val playerOptions = listOf("") + availablePlayers.map { it.name }
             val playerAdapter = ArrayAdapter(binding.root.context, android.R.layout.simple_spinner_item, playerOptions)
@@ -229,6 +246,7 @@ class EditGameFragment : Fragment() {
                             if (newPlayerId == 0) tempGamePlayers[posInList].color = null
                             binding.colorSquare.visibility = if (newPlayerId != 0) View.VISIBLE else View.GONE
                             updateColorSquare()
+                            adapter.updatePlayers(tempGamePlayers.toList())
                             Log.d("EditGameFragment", "Player selected at $posInList: $newPlayerId")
                         }
                     }

@@ -67,4 +67,7 @@
     <string name="no_players_error">No players selected</string>
     <string name="save_game_error">Failed to save game: %s</string>
     <string name="select_color_error">Please select a color for all players</string>
+    <!-- Добавленные строки для новых ограничений -->
+    <string name="minimum_players_error">At least 2 players are required to save the game</string>
+    <string name="minimum_score_error">All scores must be greater than 1 to save the game</string>
 </resources>
