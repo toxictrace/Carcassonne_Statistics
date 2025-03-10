@@ -1,14 +1,16 @@
 package by.toxic.carstat
 
+import android.animation.ValueAnimator
 import android.content.res.Configuration
 import android.os.Bundle
 import android.util.Log
+import android.view.animation.AccelerateDecelerateInterpolator
+import android.widget.ImageView
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.navigation.NavController
 import androidx.navigation.fragment.NavHostFragment
-import androidx.navigation.ui.setupWithNavController
 import by.toxic.carstat.databinding.ActivityMainBinding
 
 class MainActivity : AppCompatActivity() {
@@ -35,74 +37,148 @@ class MainActivity : AppCompatActivity() {
             try {
                 navController = navHostFragment.navController
                 navController?.let { navCtrl ->
-                    binding.bottomNavigation.setupWithNavController(navCtrl)
                     Log.d("MainActivity", "NavController initialized")
 
+                    // Инициализация размера текущей иконки с анимацией
                     navCtrl.addOnDestinationChangedListener { _, destination, _ ->
                         isEditing = when (destination.id) {
                             R.id.editPlayerFragment, R.id.editGameFragment -> true
                             else -> false
                         }
                         Log.d("MainActivity", "Editing mode: $isEditing, Destination: ${destination.label}")
+
+                        // Обновление размера иконок с анимацией
+                        updateNavBarIconSizes(destination.id)
                     }
 
-                    binding.bottomNavigation.setOnItemSelectedListener { item ->
-                        when (item.itemId) {
-                            R.id.addFragment -> {
-                                when (navCtrl.currentDestination?.id) {
-                                    R.id.gamesFragment -> {
-                                        Log.d("MainActivity", "Navigating to EditGameFragment from Games")
-                                        navCtrl.navigate(R.id.action_gamesFragment_to_editGameFragment)
-                                        false
-                                    }
-                                    R.id.playersFragment -> {
-                                        Log.d("MainActivity", "Navigating to EditPlayerFragment from Players")
-                                        val bundle = Bundle().apply { putInt("playerId", -1) }
-                                        navCtrl.navigate(R.id.action_playersFragment_to_editPlayerFragment, bundle)
-                                        false
-                                    }
-                                    R.id.editGameFragment -> {
-                                        Log.d("MainActivity", "Adding player in EditGameFragment")
-                                        val fragment = navHostFragment.childFragmentManager.primaryNavigationFragment as? EditGameFragment
-                                        fragment?.addPlayerFromNavBar() ?: Log.e("MainActivity", "EditGameFragment not found in primary navigation")
-                                        false
-                                    }
-                                    R.id.viewGameFragment -> {
-                                        Log.d("MainActivity", "Navigating to EditGameFragment from ViewGameFragment")
-                                        val gameId = navCtrl.currentBackStackEntry?.arguments?.getInt("gameId", -1) ?: -1
-                                        if (gameId != -1) {
-                                            val bundle = Bundle().apply { putInt("gameId", gameId) }
-                                            navCtrl.navigate(R.id.action_viewGameFragment_to_editGameFragment, bundle)
-                                        } else {
-                                            Log.e("MainActivity", "Invalid gameId for editing")
-                                        }
-                                        false
-                                    }
-                                    else -> {
-                                        Log.d("MainActivity", "Add clicked, but no action defined for ${navCtrl.currentDestination?.label}")
-                                        false
-                                    }
-                                }
-                            }
-                            else -> {
-                                if (!isEditing) {
-                                    navCtrl.navigate(item.itemId)
-                                    true
-                                } else {
-                                    Log.d("MainActivity", "Navigation blocked due to editing mode")
-                                    false
-                                }
-                            }
-                        }
-                    }
+                    // Настройка нажатий на элементы NavBar
+                    setupNavBarClicks(navCtrl)
 
-                    // Настройка обработки нажатия кнопки "Назад"
+                    // Настройка обработки кнопки "Назад"
                     setupBackPressedHandler(navCtrl)
                 } ?: Log.e("MainActivity", "NavController is null!")
             } catch (e: Exception) {
                 Log.e("MainActivity", "Error initializing NavController: ${e.message}")
             }
         }
+    }
+
+    private fun setupNavBarClicks(navController: NavController) {
+        // Games
+        binding.navItemGames.setOnClickListener {
+            if (!isEditing) {
+                navController.navigate(R.id.gamesFragment)
+            } else {
+                Log.d("MainActivity", "Navigation blocked due to editing mode")
+            }
+        }
+
+        // Players
+        binding.navItemPlayers.setOnClickListener {
+            if (!isEditing) {
+                navController.navigate(R.id.playersFragment)
+            } else {
+                Log.d("MainActivity", "Navigation blocked due to editing mode")
+            }
+        }
+
+        // Add
+        binding.navItemAdd.setOnClickListener {
+            when (navController.currentDestination?.id) {
+                R.id.gamesFragment -> {
+                    Log.d("MainActivity", "Navigating to EditGameFragment from Games")
+                    navController.navigate(R.id.action_gamesFragment_to_editGameFragment)
+                }
+                R.id.playersFragment -> {
+                    Log.d("MainActivity", "Navigating to EditPlayerFragment from Players")
+                    val bundle = Bundle().apply { putInt("playerId", -1) }
+                    navController.navigate(R.id.action_playersFragment_to_editPlayerFragment, bundle)
+                }
+                R.id.editGameFragment -> {
+                    Log.d("MainActivity", "Adding player in EditGameFragment")
+                    val fragment = (supportFragmentManager.findFragmentById(R.id.nav_host_fragment) as NavHostFragment)
+                        .childFragmentManager.primaryNavigationFragment as? EditGameFragment
+                    fragment?.addPlayerFromNavBar() ?: Log.e("MainActivity", "EditGameFragment not found in primary navigation")
+                }
+                R.id.viewGameFragment -> {
+                    Log.d("MainActivity", "Navigating to EditGameFragment from ViewGameFragment")
+                    val gameId = navController.currentBackStackEntry?.arguments?.getInt("gameId", -1) ?: -1
+                    if (gameId != -1) {
+                        val bundle = Bundle().apply { putInt("gameId", gameId) }
+                        navController.navigate(R.id.action_viewGameFragment_to_editGameFragment, bundle)
+                    } else {
+                        Log.e("MainActivity", "Invalid gameId for editing")
+                    }
+                }
+                else -> {
+                    Log.d("MainActivity", "Add clicked, but no action defined for ${navController.currentDestination?.label}")
+                }
+            }
+        }
+
+        // Statistics
+        binding.navItemStatistics.setOnClickListener {
+            if (!isEditing) {
+                navController.navigate(R.id.statisticsFragment)
+            } else {
+                Log.d("MainActivity", "Navigation blocked due to editing mode")
+            }
+        }
+
+        // Settings
+        binding.navItemSettings.setOnClickListener {
+            if (!isEditing) {
+                navController.navigate(R.id.settingsFragment)
+            } else {
+                Log.d("MainActivity", "Navigation blocked due to editing mode")
+            }
+        }
+    }
+
+    private fun updateNavBarIconSizes(destinationId: Int) {
+        val normalSizeDp = 48
+        val selectedSizeDp = 72
+
+        // Сбрасываем размеры всех иконок до 48dp с анимацией
+        animateIconSize(binding.navIconGames, normalSizeDp)
+        animateIconSize(binding.navIconPlayers, normalSizeDp)
+        animateIconSize(binding.navIconAdd, normalSizeDp)
+        animateIconSize(binding.navIconStatistics, normalSizeDp)
+        animateIconSize(binding.navIconSettings, normalSizeDp)
+
+        // Увеличиваем размер выбранной иконки до 72dp с анимацией
+        when (destinationId) {
+            R.id.gamesFragment, R.id.viewGameFragment, R.id.editGameFragment -> {
+                animateIconSize(binding.navIconGames, selectedSizeDp)
+            }
+            R.id.playersFragment, R.id.editPlayerFragment -> {
+                animateIconSize(binding.navIconPlayers, selectedSizeDp)
+            }
+            R.id.statisticsFragment -> {
+                animateIconSize(binding.navIconStatistics, selectedSizeDp)
+            }
+            R.id.settingsFragment -> {
+                animateIconSize(binding.navIconSettings, selectedSizeDp)
+            }
+        }
+    }
+
+    private fun animateIconSize(imageView: ImageView, targetSizeDp: Int) {
+        val density = resources.displayMetrics.density
+        val currentSizePx = imageView.layoutParams.width
+        val targetSizePx = (targetSizeDp * density).toInt()
+
+        val animator = ValueAnimator.ofInt(currentSizePx, targetSizePx)
+        animator.duration = 200 // Длительность анимации в миллисекундах (0.2 секунды)
+        animator.interpolator = AccelerateDecelerateInterpolator() // Плавное ускорение и замедление
+        animator.addUpdateListener { animation ->
+            val value = animation.animatedValue as Int
+            val layoutParams = imageView.layoutParams
+            layoutParams.width = value
+            layoutParams.height = value
+            imageView.layoutParams = layoutParams
+        }
+        animator.start()
     }
 
     private fun setupBackPressedHandler(navController: NavController) {
@@ -128,7 +204,7 @@ class MainActivity : AppCompatActivity() {
                             .show()
                     }
                     else -> {
-                        navController.navigateUp() // По умолчанию возвращаемся на предыдущий экран
+                        navController.navigateUp()
                     }
                 }
             }
