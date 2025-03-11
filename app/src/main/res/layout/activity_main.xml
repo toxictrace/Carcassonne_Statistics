@@ -18,134 +18,154 @@
             app:layout_constraintEnd_toEndOf="parent"
             app:navGraph="@navigation/nav_graph" />
 
-        <!-- Кастомная навигационная панель -->
         <androidx.constraintlayout.widget.ConstraintLayout
             android:id="@+id/custom_nav_bar"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:minHeight="80dp"
             android:background="@drawable/navbar_background"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent">
 
-            <!-- Games -->
             <androidx.constraintlayout.widget.ConstraintLayout
                 android:id="@+id/nav_item_games"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:padding="8dp"
+                android:padding="4dp"
                 android:clickable="true"
                 android:focusable="true"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintEnd_toStartOf="@id/nav_item_players"
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintWidth_percent="0.2">
+                app:layout_constraintHorizontal_weight="1"
+                android:minWidth="80dp">
 
                 <ImageView
                     android:id="@+id/nav_icon_games"
-                    android:layout_width="48dp"
-                    android:layout_height="48dp"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:adjustViewBounds="true"
+                    android:maxWidth="72dp"
+                    android:scaleType="fitCenter"
                     android:src="@drawable/ic_games"
                     app:layout_constraintTop_toTopOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintEnd_toEndOf="parent" />
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintBottom_toBottomOf="parent" />
             </androidx.constraintlayout.widget.ConstraintLayout>
 
-            <!-- Players -->
             <androidx.constraintlayout.widget.ConstraintLayout
                 android:id="@+id/nav_item_players"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:padding="8dp"
+                android:padding="4dp"
                 android:clickable="true"
                 android:focusable="true"
                 app:layout_constraintStart_toEndOf="@id/nav_item_games"
                 app:layout_constraintEnd_toStartOf="@id/nav_item_add"
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintWidth_percent="0.2">
+                app:layout_constraintHorizontal_weight="1"
+                android:minWidth="80dp">
 
                 <ImageView
                     android:id="@+id/nav_icon_players"
-                    android:layout_width="48dp"
-                    android:layout_height="48dp"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:adjustViewBounds="true"
+                    android:maxWidth="72dp"
+                    android:scaleType="fitCenter"
                     android:src="@drawable/ic_players"
                     app:layout_constraintTop_toTopOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintEnd_toEndOf="parent" />
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintBottom_toBottomOf="parent" />
             </androidx.constraintlayout.widget.ConstraintLayout>
 
-            <!-- Add -->
             <androidx.constraintlayout.widget.ConstraintLayout
                 android:id="@+id/nav_item_add"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:padding="8dp"
+                android:padding="4dp"
                 android:clickable="true"
                 android:focusable="true"
                 app:layout_constraintStart_toEndOf="@id/nav_item_players"
                 app:layout_constraintEnd_toStartOf="@id/nav_item_statistics"
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintWidth_percent="0.2">
+                app:layout_constraintHorizontal_weight="1"
+                android:minWidth="80dp">
 
                 <ImageView
                     android:id="@+id/nav_icon_add"
-                    android:layout_width="48dp"
-                    android:layout_height="48dp"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:adjustViewBounds="true"
+                    android:maxWidth="72dp"
+                    android:scaleType="fitCenter"
                     android:src="@drawable/ic_add_icon"
                     app:layout_constraintTop_toTopOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintEnd_toEndOf="parent" />
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintBottom_toBottomOf="parent" />
             </androidx.constraintlayout.widget.ConstraintLayout>
 
-            <!-- Statistics -->
             <androidx.constraintlayout.widget.ConstraintLayout
                 android:id="@+id/nav_item_statistics"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:padding="8dp"
+                android:padding="4dp"
                 android:clickable="true"
                 android:focusable="true"
                 app:layout_constraintStart_toEndOf="@id/nav_item_add"
                 app:layout_constraintEnd_toStartOf="@id/nav_item_settings"
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintWidth_percent="0.2">
+                app:layout_constraintHorizontal_weight="1"
+                android:minWidth="80dp">
 
                 <ImageView
                     android:id="@+id/nav_icon_statistics"
-                    android:layout_width="48dp"
-                    android:layout_height="48dp"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:adjustViewBounds="true"
+                    android:maxWidth="72dp"
+                    android:scaleType="fitCenter"
                     android:src="@drawable/ic_stats"
                     app:layout_constraintTop_toTopOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintEnd_toEndOf="parent" />
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintBottom_toBottomOf="parent" />
             </androidx.constraintlayout.widget.ConstraintLayout>
 
-            <!-- Settings -->
             <androidx.constraintlayout.widget.ConstraintLayout
                 android:id="@+id/nav_item_settings"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:padding="8dp"
+                android:padding="4dp"
                 android:clickable="true"
                 android:focusable="true"
                 app:layout_constraintStart_toEndOf="@id/nav_item_statistics"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintWidth_percent="0.2">
+                app:layout_constraintHorizontal_weight="1"
+                android:minWidth="80dp">
 
                 <ImageView
                     android:id="@+id/nav_icon_settings"
-                    android:layout_width="48dp"
-                    android:layout_height="48dp"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:adjustViewBounds="true"
+                    android:maxWidth="72dp"
+                    android:scaleType="fitCenter"
                     android:src="@drawable/ic_settings_icon"
                     app:layout_constraintTop_toTopOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintEnd_toEndOf="parent" />
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintBottom_toBottomOf="parent" />
             </androidx.constraintlayout.widget.ConstraintLayout>
 
         </androidx.constraintlayout.widget.ConstraintLayout>

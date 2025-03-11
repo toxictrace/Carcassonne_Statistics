@@ -10,4 +10,5 @@
     <color name="on_primary">#FFFFFF</color>       <!-- Белый текст на primary -->
     <color name="on_background">#212121</color>    <!-- Тёмный текст на фоне -->
     <color name="on_surface">#212121</color>       <!-- Тёмный текст на поверхностях -->
+    <color name="error_red">#FF0000</color>
 </resources>

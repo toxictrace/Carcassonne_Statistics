@@ -27,10 +27,6 @@
             app:destination="@id/editPlayerFragment" />
     </fragment>
     <fragment
-        android:id="@+id/addFragment"
-        android:name="by.toxic.carstat.AddFragment"
-        android:label="@string/add_button" />
-    <fragment
         android:id="@+id/statisticsFragment"
         android:name="by.toxic.carstat.StatisticsFragment"
         android:label="@string/stats_title" />

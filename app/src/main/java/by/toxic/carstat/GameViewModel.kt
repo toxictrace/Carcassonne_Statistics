@@ -61,14 +61,14 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     fun getAllPlayersList(): Flow<List<Player>> = allPlayers
 
-    fun addPlayer(context: Context, name: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
+    fun addPlayer(context: Context, name: String, frameId: Int, onSuccess: () -> Unit, onError: (String) -> Unit) {
         viewModelScope.launch {
             if (doesPlayerExist(name)) {
                 onError(context.getString(R.string.player_exists_error, name))
             } else {
                 try {
-                    db.playerDao().insertPlayer(Player(name = name))
-                    Log.d("GameViewModel", "Player '$name' added successfully")
+                    db.playerDao().insertPlayer(Player(name = name, frameId = frameId))
+                    Log.d("GameViewModel", "Player '$name' with frameId '$frameId' added successfully")
                     onSuccess()
                 } catch (e: Exception) {
                     Log.e("GameViewModel", "Failed to add player '$name': ${e.message}", e)

@@ -31,7 +31,17 @@ class PlayerAdapter(
 
     inner class PlayerViewHolder(private val binding: ItemPlayerBinding) : RecyclerView.ViewHolder(binding.root) {
         fun bind(player: Player) {
-            binding.playerName.text = player.name // Убрано "Name: "
+            binding.playerName.text = player.name
+
+            // Используем сохранённый frameId
+            val backgroundRes = when (player.frameId) {
+                1 -> R.drawable.player_background1
+                2 -> R.drawable.player_background2
+                3 -> R.drawable.player_background3
+                else -> R.drawable.player_background1 // По умолчанию
+            }
+            binding.playerBackground.setImageResource(backgroundRes)
+
             binding.root.setOnClickListener { onEdit(player) }
             binding.root.setOnLongClickListener {
                 onDelete(player)

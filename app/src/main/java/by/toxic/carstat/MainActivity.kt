@@ -9,20 +9,28 @@ import android.widget.ImageView
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavController
 import androidx.navigation.fragment.NavHostFragment
 import by.toxic.carstat.databinding.ActivityMainBinding
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
     private var navController: NavController? = null
     private var isEditing = false
+    private lateinit var viewModel: GameViewModel // ViewModel для проверки игроков
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        // Инициализация ViewModel
+        viewModel = ViewModelProvider(this).get(GameViewModel::class.java)
 
         val isDarkTheme = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
         Log.d("MainActivity", "Current theme: ${if (isDarkTheme) "Dark" else "Light"}")
@@ -66,7 +74,11 @@ class MainActivity : AppCompatActivity() {
     private fun setupNavBarClicks(navController: NavController) {
         // Games
         binding.navItemGames.setOnClickListener {
-            if (!isEditing) {
+            val isNavigationBlocked = navController.currentDestination?.id == R.id.playerProfileFragment ||
+                    navController.currentDestination?.id == R.id.viewGameFragment
+            if (isNavigationBlocked) {
+                Log.d("MainActivity", "Navigation blocked: on PlayerProfileFragment or ViewGameFragment")
+            } else if (!isEditing) {
                 navController.navigate(R.id.gamesFragment)
             } else {
                 Log.d("MainActivity", "Navigation blocked due to editing mode")
@@ -75,7 +87,11 @@ class MainActivity : AppCompatActivity() {
 
         // Players
         binding.navItemPlayers.setOnClickListener {
-            if (!isEditing) {
+            val isNavigationBlocked = navController.currentDestination?.id == R.id.playerProfileFragment ||
+                    navController.currentDestination?.id == R.id.viewGameFragment
+            if (isNavigationBlocked) {
+                Log.d("MainActivity", "Navigation blocked: on PlayerProfileFragment or ViewGameFragment")
+            } else if (!isEditing) {
                 navController.navigate(R.id.playersFragment)
             } else {
                 Log.d("MainActivity", "Navigation blocked due to editing mode")
@@ -86,8 +102,20 @@ class MainActivity : AppCompatActivity() {
         binding.navItemAdd.setOnClickListener {
             when (navController.currentDestination?.id) {
                 R.id.gamesFragment -> {
-                    Log.d("MainActivity", "Navigating to EditGameFragment from Games")
-                    navController.navigate(R.id.action_gamesFragment_to_editGameFragment)
+                    lifecycleScope.launch {
+                        viewModel.allPlayers.collectLatest { players ->
+                            if (players.size < 2) {
+                                AlertDialog.Builder(this@MainActivity)
+                                    .setTitle(R.string.confirm_exit_title)
+                                    .setMessage(R.string.minimum_players_to_start_game_error)
+                                    .setPositiveButton(R.string.yes) { _, _ -> }
+                                    .show()
+                            } else {
+                                Log.d("MainActivity", "Navigating to EditGameFragment from Games")
+                                navController.navigate(R.id.action_gamesFragment_to_editGameFragment)
+                            }
+                        }
+                    }
                 }
                 R.id.playersFragment -> {
                     Log.d("MainActivity", "Navigating to EditPlayerFragment from Players")
@@ -118,7 +146,11 @@ class MainActivity : AppCompatActivity() {
 
         // Statistics
         binding.navItemStatistics.setOnClickListener {
-            if (!isEditing) {
+            val isNavigationBlocked = navController.currentDestination?.id == R.id.playerProfileFragment ||
+                    navController.currentDestination?.id == R.id.viewGameFragment
+            if (isNavigationBlocked) {
+                Log.d("MainActivity", "Navigation blocked: on PlayerProfileFragment or ViewGameFragment")
+            } else if (!isEditing) {
                 navController.navigate(R.id.statisticsFragment)
             } else {
                 Log.d("MainActivity", "Navigation blocked due to editing mode")
@@ -127,7 +159,11 @@ class MainActivity : AppCompatActivity() {
 
         // Settings
         binding.navItemSettings.setOnClickListener {
-            if (!isEditing) {
+            val isNavigationBlocked = navController.currentDestination?.id == R.id.playerProfileFragment ||
+                    navController.currentDestination?.id == R.id.viewGameFragment
+            if (isNavigationBlocked) {
+                Log.d("MainActivity", "Navigation blocked: on PlayerProfileFragment or ViewGameFragment")
+            } else if (!isEditing) {
                 navController.navigate(R.id.settingsFragment)
             } else {
                 Log.d("MainActivity", "Navigation blocked due to editing mode")
@@ -151,7 +187,7 @@ class MainActivity : AppCompatActivity() {
             R.id.gamesFragment, R.id.viewGameFragment, R.id.editGameFragment -> {
                 animateIconSize(binding.navIconGames, selectedSizeDp)
             }
-            R.id.playersFragment, R.id.editPlayerFragment -> {
+            R.id.playersFragment, R.id.editPlayerFragment, R.id.playerProfileFragment -> {
                 animateIconSize(binding.navIconPlayers, selectedSizeDp)
             }
             R.id.statisticsFragment -> {
@@ -177,6 +213,7 @@ class MainActivity : AppCompatActivity() {
             layoutParams.width = value
             layoutParams.height = value
             imageView.layoutParams = layoutParams
+            imageView.requestLayout() // Принудительный перерасчёт
         }
         animator.start()
     }

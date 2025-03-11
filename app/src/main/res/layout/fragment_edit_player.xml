@@ -4,31 +4,66 @@
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:padding="16dp">
+        android:layout_height="match_parent">
 
-        <com.google.android.material.textfield.TextInputLayout
-            android:id="@+id/name_input_layout"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
+        <EditText
+            android:id="@+id/name_input"
+            android:maxLength="9"
+            android:autofillHints="false"
+            android:layout_width="400dp"
+            android:layout_height="100dp"
+            android:background="@drawable/input_frame"
             android:hint="@string/enter_player_name_hint"
+            android:inputType="textPersonName"
+            android:paddingStart="64dp"
+            android:paddingEnd="64dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp"
+            android:textSize="18sp"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:gravity="center"
+            android:drawablePadding="8dp"
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent">
+            app:layout_constraintEnd_toEndOf="parent"
+            android:layout_marginTop="200dp" /> <!-- Примерное смещение для 2/3 высоты экрана -->
 
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/name_input"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:inputType="textPersonName" />
-        </com.google.android.material.textfield.TextInputLayout>
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/save_button"
-            android:layout_width="wrap_content"
+        <TextView
+            android:gravity="center"
+            android:id="@+id/error_message"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:text="@string/save"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toEndOf="parent" />
+            android:layout_marginTop="8dp"
+            android:textColor="@color/error_red"
+            android:visibility="gone"
+            app:layout_constraintTop_toBottomOf="@id/name_input"
+            app:layout_constraintStart_toStartOf="@id/name_input"
+            app:layout_constraintEnd_toEndOf="@id/name_input" />
+
+        <ImageButton
+            android:id="@+id/confirm_button"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            android:layout_marginTop="16dp"
+            android:background="@android:color/transparent"
+            android:scaleType="centerInside"
+            android:src="@drawable/button_confirm"
+            app:layout_constraintTop_toBottomOf="@id/error_message"
+            app:layout_constraintStart_toStartOf="@id/name_input"
+            app:layout_constraintEnd_toStartOf="@id/cancel_button" />
+
+        <ImageButton
+            android:id="@+id/cancel_button"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            android:layout_marginTop="16dp"
+            android:background="@android:color/transparent"
+            android:scaleType="centerInside"
+            android:src="@drawable/button_cancel"
+            app:layout_constraintTop_toBottomOf="@id/error_message"
+            app:layout_constraintStart_toEndOf="@id/confirm_button"
+            app:layout_constraintEnd_toEndOf="@id/name_input" />
+
     </androidx.constraintlayout.widget.ConstraintLayout>
 </layout>
