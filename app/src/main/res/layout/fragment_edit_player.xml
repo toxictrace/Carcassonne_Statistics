@@ -6,6 +6,17 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent">
 
+        <!-- Подложка под EditText -->
+        <View
+            android:id="@+id/background_view"
+            android:layout_width="240dp"
+        android:layout_height="80dp"
+        android:background="@color/background"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="180dp" />
+
         <EditText
             android:id="@+id/name_input"
             android:maxLength="9"
@@ -24,10 +35,10 @@
             android:ellipsize="end"
             android:gravity="center"
             android:drawablePadding="8dp"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            android:layout_marginTop="200dp" /> <!-- Примерное смещение для 2/3 высоты экрана -->
+            app:layout_constraintTop_toTopOf="@id/background_view"
+            app:layout_constraintBottom_toBottomOf="@id/background_view"
+            app:layout_constraintStart_toStartOf="@id/background_view"
+            app:layout_constraintEnd_toEndOf="@id/background_view" />
 
         <TextView
             android:gravity="center"
@@ -37,9 +48,9 @@
             android:layout_marginTop="8dp"
             android:textColor="@color/error_red"
             android:visibility="gone"
-            app:layout_constraintTop_toBottomOf="@id/name_input"
-            app:layout_constraintStart_toStartOf="@id/name_input"
-            app:layout_constraintEnd_toEndOf="@id/name_input" />
+            app:layout_constraintTop_toBottomOf="@id/background_view"
+            app:layout_constraintStart_toStartOf="@id/background_view"
+            app:layout_constraintEnd_toEndOf="@id/background_view" />
 
         <ImageButton
             android:id="@+id/confirm_button"
@@ -50,7 +61,7 @@
             android:scaleType="centerInside"
             android:src="@drawable/button_confirm"
             app:layout_constraintTop_toBottomOf="@id/error_message"
-            app:layout_constraintStart_toStartOf="@id/name_input"
+            app:layout_constraintStart_toStartOf="@id/background_view"
             app:layout_constraintEnd_toStartOf="@id/cancel_button" />
 
         <ImageButton
@@ -63,7 +74,7 @@
             android:src="@drawable/button_cancel"
             app:layout_constraintTop_toBottomOf="@id/error_message"
             app:layout_constraintStart_toEndOf="@id/confirm_button"
-            app:layout_constraintEnd_toEndOf="@id/name_input" />
+            app:layout_constraintEnd_toEndOf="@id/background_view" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 </layout>

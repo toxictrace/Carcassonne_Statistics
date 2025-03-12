@@ -9,20 +9,25 @@ import android.widget.ImageView
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavController
 import androidx.navigation.fragment.NavHostFragment
 import by.toxic.carstat.databinding.ActivityMainBinding
+import com.bumptech.glide.Glide
+import com.bumptech.glide.load.engine.DiskCacheStrategy
+import com.bumptech.glide.request.RequestOptions
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import kotlin.random.Random
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
     private var navController: NavController? = null
     private var isEditing = false
-    private lateinit var viewModel: GameViewModel // ViewModel для проверки игроков
+    private lateinit var viewModel: GameViewModel
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -34,6 +39,9 @@ class MainActivity : AppCompatActivity() {
 
         val isDarkTheme = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
         Log.d("MainActivity", "Current theme: ${if (isDarkTheme) "Dark" else "Light"}")
+
+        // Установка начального случайного фона
+        setRandomBackground(isDarkTheme)
 
         val navHostFragment = supportFragmentManager.findFragmentById(R.id.nav_host_fragment)
         if (navHostFragment == null) {
@@ -47,13 +55,16 @@ class MainActivity : AppCompatActivity() {
                 navController?.let { navCtrl ->
                     Log.d("MainActivity", "NavController initialized")
 
-                    // Инициализация размера текущей иконки с анимацией
+                    // Установка фона при смене фрагмента
                     navCtrl.addOnDestinationChangedListener { _, destination, _ ->
                         isEditing = when (destination.id) {
                             R.id.editPlayerFragment, R.id.editGameFragment -> true
                             else -> false
                         }
                         Log.d("MainActivity", "Editing mode: $isEditing, Destination: ${destination.label}")
+
+                        // Обновление фона при смене фрагмента
+                        setRandomBackground(isDarkTheme)
 
                         // Обновление размера иконок с анимацией
                         updateNavBarIconSizes(destination.id)
@@ -68,6 +79,53 @@ class MainActivity : AppCompatActivity() {
             } catch (e: Exception) {
                 Log.e("MainActivity", "Error initializing NavController: ${e.message}")
             }
+        }
+    }
+
+    private fun setRandomBackground(isDarkTheme: Boolean) {
+        val lightBackgrounds = listOf(
+            R.drawable.light_background1,
+            R.drawable.light_background2,
+            R.drawable.light_background3,
+            R.drawable.light_background4,
+            R.drawable.light_background5,
+            R.drawable.light_background6
+        )
+
+        val darkBackgrounds = listOf(
+            R.drawable.dark_background1,
+            R.drawable.dark_background2,
+            R.drawable.dark_background3,
+            R.drawable.dark_background4,
+            R.drawable.dark_background5,
+            R.drawable.dark_background6
+        )
+
+        // Выбираем случайный фон в зависимости от темы
+        val selectedBackground = if (isDarkTheme) {
+            darkBackgrounds[Random.nextInt(darkBackgrounds.size)]
+        } else {
+            lightBackgrounds[Random.nextInt(lightBackgrounds.size)]
+        }
+
+        // Проверяем, существует ли ресурс
+        try {
+            val options = RequestOptions()
+                .diskCacheStrategy(DiskCacheStrategy.RESOURCE) // Кэшируем оригинальное изображение
+                .skipMemoryCache(false) // Используем кэш памяти
+
+            // Загружаем изображение с помощью Glide
+            Glide.with(this)
+                .load(selectedBackground)
+                .apply(options)
+                .into(binding.backgroundImage)
+
+            Log.d("MainActivity", "Set background: $selectedBackground")
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Failed to load background: ${e.message}")
+            // Устанавливаем запасной фон (например, прозрачный или цвет)
+            binding.backgroundImage.setImageDrawable(null)
+            binding.root.setBackgroundColor(ContextCompat.getColor(this, android.R.color.transparent))
         }
     }
 
@@ -205,15 +263,15 @@ class MainActivity : AppCompatActivity() {
         val targetSizePx = (targetSizeDp * density).toInt()
 
         val animator = ValueAnimator.ofInt(currentSizePx, targetSizePx)
-        animator.duration = 200 // Длительность анимации в миллисекундах (0.2 секунды)
-        animator.interpolator = AccelerateDecelerateInterpolator() // Плавное ускорение и замедление
+        animator.duration = 200
+        animator.interpolator = AccelerateDecelerateInterpolator()
         animator.addUpdateListener { animation ->
             val value = animation.animatedValue as Int
             val layoutParams = imageView.layoutParams
             layoutParams.width = value
             layoutParams.height = value
             imageView.layoutParams = layoutParams
-            imageView.requestLayout() // Принудительный перерасчёт
+            imageView.requestLayout()
         }
         animator.start()
     }
