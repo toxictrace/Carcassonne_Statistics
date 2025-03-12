@@ -70,6 +70,18 @@
     <string name="minimum_players_error">At least 2 players are required to save the game</string>
     <string name="minimum_score_error">All scores must be greater than 1 to save the game</string>
     <string name="minimum_players_to_start_game_error">Enter at least 2 players</string>
-    <!-- Новые строки -->
     <string name="empty_name_error">Player name cannot be empty</string>
+
+    <!-- Новые строки для настроек -->
+    <string name="theme">Theme</string>
+    <string name="background">Background</string>
+    <string name="background_enabled">Enabled (Custom)</string>
+    <string name="background_disabled">Disabled (Default)</string>
+    <string name="sign_in_google">Sign in with Google Account</string>
+    <string name="sign_in_failed">Sign in failed</string>
+    <string name="sign_in_first">Please sign in first</string>
+    <string name="save_data">Save Data</string>
+    <string name="load_data">Load Data</string>
+    <string name="saving_data">Saving data to Google Drive</string>
+    <string name="loading_data">Loading data from Google Drive</string>
 </resources>

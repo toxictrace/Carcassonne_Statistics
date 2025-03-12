@@ -34,7 +34,7 @@ android {
         jvmTarget = "17"
     }
     buildFeatures {
-        dataBinding = true // Добавляем поддержку Data Binding
+        dataBinding = true // Поддержка Data Binding
     }
 }
 
@@ -45,7 +45,7 @@ dependencies {
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
     implementation("androidx.lifecycle:lifecycle-livedata-ktx:2.8.6")
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.6")
-    implementation ("androidx.recyclerview:recyclerview:1.3.2")
+    implementation("androidx.recyclerview:recyclerview:1.3.2")
     implementation("androidx.navigation:navigation-fragment-ktx:2.8.3")
     implementation("androidx.navigation:navigation-ui-ktx:2.8.3")
     implementation("androidx.room:room-ktx:2.6.1")
@@ -54,6 +54,9 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
-    implementation ("com.github.bumptech.glide:glide:4.16.0")
-    annotationProcessor ("com.github.bumptech.glide:compiler:4.16.0")
+    implementation("com.github.bumptech.glide:glide:4.16.0")
+    annotationProcessor("com.github.bumptech.glide:compiler:4.16.0")
+    implementation("com.google.android.gms:play-services-auth:20.7.0") // Для Google Sign-In
+    // Для Google Drive API (добавить после настройки)
+    // implementation("com.google.apis:google-api-services-drive:v3-rev20220815-2.0.0")
 }

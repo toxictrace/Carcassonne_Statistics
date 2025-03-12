@@ -1,14 +1,18 @@
 package by.toxic.carstat
 
 import android.animation.ValueAnimator
+import android.content.Context
+import android.content.Intent
 import android.content.res.Configuration
 import android.os.Bundle
 import android.util.Log
 import android.view.animation.AccelerateDecelerateInterpolator
 import android.widget.ImageView
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
@@ -18,8 +22,11 @@ import by.toxic.carstat.databinding.ActivityMainBinding
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.engine.DiskCacheStrategy
 import com.bumptech.glide.request.RequestOptions
-import kotlinx.coroutines.flow.collectLatest
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInClient
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.collectLatest
 import kotlin.random.Random
 
 class MainActivity : AppCompatActivity() {
@@ -28,20 +35,45 @@ class MainActivity : AppCompatActivity() {
     private var navController: NavController? = null
     private var isEditing = false
     private lateinit var viewModel: GameViewModel
+    private var isCustomBackgroundsEnabled = false
+    private lateinit var googleSignInClient: GoogleSignInClient
+    private val RC_SIGN_IN = 9001
+
+    private val signInLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == RESULT_OK) {
+            val data: Intent? = result.data
+            val task = GoogleSignIn.getSignedInAccountFromIntent(data)
+            task.addOnSuccessListener { account ->
+                Log.d("MainActivity", "Google Sign-In successful: ${account.displayName}")
+                navController?.currentDestination?.let { destination ->
+                    if (destination.id == R.id.settingsFragment) {
+                        val fragment = supportFragmentManager.findFragmentById(R.id.nav_host_fragment)
+                            ?.childFragmentManager?.primaryNavigationFragment as? SettingsFragment
+                        fragment?.handleSignInResult(task)
+                    }
+                }
+            }.addOnFailureListener { e ->
+                Log.e("MainActivity", "Google Sign-In failed: ${e.message}")
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Инициализация ViewModel
         viewModel = ViewModelProvider(this).get(GameViewModel::class.java)
+
+        val sharedPref = getPreferences(Context.MODE_PRIVATE)
+        val theme = sharedPref.getString("theme", "Follow System")
+        isCustomBackgroundsEnabled = sharedPref.getBoolean("background_enabled", false)
+        applyTheme(theme)
 
         val isDarkTheme = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
         Log.d("MainActivity", "Current theme: ${if (isDarkTheme) "Dark" else "Light"}")
 
-        // Установка начального случайного фона
-        setRandomBackground(isDarkTheme)
+        setRandomBackground(isDarkTheme, isCustomBackgroundsEnabled)
 
         val navHostFragment = supportFragmentManager.findFragmentById(R.id.nav_host_fragment)
         if (navHostFragment == null) {
@@ -54,35 +86,62 @@ class MainActivity : AppCompatActivity() {
                 navController = navHostFragment.navController
                 navController?.let { navCtrl ->
                     Log.d("MainActivity", "NavController initialized")
-
-                    // Установка фона при смене фрагмента
                     navCtrl.addOnDestinationChangedListener { _, destination, _ ->
                         isEditing = when (destination.id) {
                             R.id.editPlayerFragment, R.id.editGameFragment -> true
                             else -> false
                         }
                         Log.d("MainActivity", "Editing mode: $isEditing, Destination: ${destination.label}")
-
-                        // Обновление фона при смене фрагмента
-                        setRandomBackground(isDarkTheme)
-
-                        // Обновление размера иконок с анимацией
+                        setRandomBackground(isDarkTheme, isCustomBackgroundsEnabled)
                         updateNavBarIconSizes(destination.id)
                     }
-
-                    // Настройка нажатий на элементы NavBar
                     setupNavBarClicks(navCtrl)
-
-                    // Настройка обработки кнопки "Назад"
                     setupBackPressedHandler(navCtrl)
                 } ?: Log.e("MainActivity", "NavController is null!")
             } catch (e: Exception) {
                 Log.e("MainActivity", "Error initializing NavController: ${e.message}")
             }
         }
+
+        val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+            .requestEmail()
+            .build()
+        googleSignInClient = GoogleSignIn.getClient(this, gso)
     }
 
-    private fun setRandomBackground(isDarkTheme: Boolean) {
+    fun applyTheme(theme: String?) {
+        when (theme) {
+            "Light" -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
+            "Dark" -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
+            "Follow System" -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
+            else -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
+        }
+        recreateUI()
+    }
+
+    private fun recreateUI() {
+        val isDarkTheme = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
+        setRandomBackground(isDarkTheme, isCustomBackgroundsEnabled)
+        navController?.currentDestination?.let { updateNavBarIconSizes(it.id) }
+    }
+
+    fun enableCustomBackgrounds(enabled: Boolean) {
+        val sharedPref = getPreferences(Context.MODE_PRIVATE)
+        sharedPref.edit().putBoolean("background_enabled", enabled).apply()
+        isCustomBackgroundsEnabled = enabled
+        val isDarkTheme = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
+        setRandomBackground(isDarkTheme, enabled)
+    }
+
+    private fun setRandomBackground(isDarkTheme: Boolean, useCustomBackgrounds: Boolean) {
+        if (!useCustomBackgrounds) {
+            binding.backgroundImage.setImageDrawable(null)
+            // Используем цвет background из colors.xml, Android сам выберет правильный в зависимости от темы
+            val backgroundColor = ContextCompat.getColor(this, R.color.background)
+            binding.root.setBackgroundColor(backgroundColor)
+            return
+        }
+
         val lightBackgrounds = listOf(
             R.drawable.light_background1,
             R.drawable.light_background2,
@@ -101,20 +160,17 @@ class MainActivity : AppCompatActivity() {
             R.drawable.dark_background6
         )
 
-        // Выбираем случайный фон в зависимости от темы
         val selectedBackground = if (isDarkTheme) {
             darkBackgrounds[Random.nextInt(darkBackgrounds.size)]
         } else {
             lightBackgrounds[Random.nextInt(lightBackgrounds.size)]
         }
 
-        // Проверяем, существует ли ресурс
         try {
             val options = RequestOptions()
-                .diskCacheStrategy(DiskCacheStrategy.RESOURCE) // Кэшируем оригинальное изображение
-                .skipMemoryCache(false) // Используем кэш памяти
+                .diskCacheStrategy(DiskCacheStrategy.RESOURCE)
+                .skipMemoryCache(false)
 
-            // Загружаем изображение с помощью Glide
             Glide.with(this)
                 .load(selectedBackground)
                 .apply(options)
@@ -123,14 +179,17 @@ class MainActivity : AppCompatActivity() {
             Log.d("MainActivity", "Set background: $selectedBackground")
         } catch (e: Exception) {
             Log.e("MainActivity", "Failed to load background: ${e.message}")
-            // Устанавливаем запасной фон (например, прозрачный или цвет)
             binding.backgroundImage.setImageDrawable(null)
-            binding.root.setBackgroundColor(ContextCompat.getColor(this, android.R.color.transparent))
+            binding.root.setBackgroundColor(ContextCompat.getColor(this, R.color.background)) // Используем R.color.background как запасной
         }
     }
 
+    fun signInWithGoogle() {
+        val signInIntent = googleSignInClient.signInIntent
+        signInLauncher.launch(signInIntent)
+    }
+
     private fun setupNavBarClicks(navController: NavController) {
-        // Games
         binding.navItemGames.setOnClickListener {
             val isNavigationBlocked = navController.currentDestination?.id == R.id.playerProfileFragment ||
                     navController.currentDestination?.id == R.id.viewGameFragment
@@ -143,7 +202,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Players
         binding.navItemPlayers.setOnClickListener {
             val isNavigationBlocked = navController.currentDestination?.id == R.id.playerProfileFragment ||
                     navController.currentDestination?.id == R.id.viewGameFragment
@@ -156,7 +214,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Add
         binding.navItemAdd.setOnClickListener {
             when (navController.currentDestination?.id) {
                 R.id.gamesFragment -> {
@@ -184,7 +241,7 @@ class MainActivity : AppCompatActivity() {
                     Log.d("MainActivity", "Adding player in EditGameFragment")
                     val fragment = (supportFragmentManager.findFragmentById(R.id.nav_host_fragment) as NavHostFragment)
                         .childFragmentManager.primaryNavigationFragment as? EditGameFragment
-                    fragment?.addPlayerFromNavBar() ?: Log.e("MainActivity", "EditGameFragment not found in primary navigation")
+                    fragment?.addPlayerFromNavBar() ?: Log.e("MainActivity", "EditGameFragment not found")
                 }
                 R.id.viewGameFragment -> {
                     Log.d("MainActivity", "Navigating to EditGameFragment from ViewGameFragment")
@@ -202,7 +259,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Statistics
         binding.navItemStatistics.setOnClickListener {
             val isNavigationBlocked = navController.currentDestination?.id == R.id.playerProfileFragment ||
                     navController.currentDestination?.id == R.id.viewGameFragment
@@ -215,7 +271,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Settings
         binding.navItemSettings.setOnClickListener {
             val isNavigationBlocked = navController.currentDestination?.id == R.id.playerProfileFragment ||
                     navController.currentDestination?.id == R.id.viewGameFragment
@@ -233,34 +288,49 @@ class MainActivity : AppCompatActivity() {
         val normalSizeDp = 48
         val selectedSizeDp = 72
 
-        // Сбрасываем размеры всех иконок до 48dp с анимацией
-        animateIconSize(binding.navIconGames, normalSizeDp)
-        animateIconSize(binding.navIconPlayers, normalSizeDp)
-        animateIconSize(binding.navIconAdd, normalSizeDp)
-        animateIconSize(binding.navIconStatistics, normalSizeDp)
-        animateIconSize(binding.navIconSettings, normalSizeDp)
+        val density = resources.displayMetrics.density
+        val normalSizePx = (normalSizeDp * density).toInt()
+        val selectedSizePx = (selectedSizeDp * density).toInt()
 
-        // Увеличиваем размер выбранной иконки до 72dp с анимацией
+        binding.navIconGames.clearAnimation()
+        binding.navIconPlayers.clearAnimation()
+        binding.navIconAdd.clearAnimation()
+        binding.navIconStatistics.clearAnimation()
+        binding.navIconSettings.clearAnimation()
+
+        setIconSize(binding.navIconGames, normalSizePx)
+        setIconSize(binding.navIconPlayers, normalSizePx)
+        setIconSize(binding.navIconAdd, normalSizePx)
+        setIconSize(binding.navIconStatistics, normalSizePx)
+        setIconSize(binding.navIconSettings, normalSizePx)
+
         when (destinationId) {
             R.id.gamesFragment, R.id.viewGameFragment, R.id.editGameFragment -> {
-                animateIconSize(binding.navIconGames, selectedSizeDp)
+                animateIconSize(binding.navIconGames, selectedSizePx)
             }
             R.id.playersFragment, R.id.editPlayerFragment, R.id.playerProfileFragment -> {
-                animateIconSize(binding.navIconPlayers, selectedSizeDp)
+                animateIconSize(binding.navIconPlayers, selectedSizePx)
             }
             R.id.statisticsFragment -> {
-                animateIconSize(binding.navIconStatistics, selectedSizeDp)
+                animateIconSize(binding.navIconStatistics, selectedSizePx)
             }
             R.id.settingsFragment -> {
-                animateIconSize(binding.navIconSettings, selectedSizeDp)
+                animateIconSize(binding.navIconSettings, selectedSizePx)
             }
         }
     }
 
-    private fun animateIconSize(imageView: ImageView, targetSizeDp: Int) {
-        val density = resources.displayMetrics.density
+    private fun setIconSize(imageView: ImageView, sizePx: Int) {
+        val layoutParams = imageView.layoutParams
+        layoutParams.width = sizePx
+        layoutParams.height = sizePx
+        imageView.layoutParams = layoutParams
+        imageView.requestLayout()
+    }
+
+    private fun animateIconSize(imageView: ImageView, targetSizePx: Int) {
         val currentSizePx = imageView.layoutParams.width
-        val targetSizePx = (targetSizeDp * density).toInt()
+        if (currentSizePx == targetSizePx) return
 
         val animator = ValueAnimator.ofInt(currentSizePx, targetSizePx)
         animator.duration = 200
@@ -282,20 +352,21 @@ class MainActivity : AppCompatActivity() {
                 when (navController.currentDestination?.id) {
                     R.id.gamesFragment, R.id.statisticsFragment, R.id.settingsFragment -> {
                         AlertDialog.Builder(this@MainActivity)
-                            .setTitle(getString(R.string.exit_app_title))
-                            .setMessage(getString(R.string.exit_app_message))
-                            .setPositiveButton(getString(R.string.yes)) { _, _ -> finish() }
-                            .setNegativeButton(getString(R.string.no), null)
+                            .setTitle(R.string.exit_app_title)
+                            .setMessage(R.string.exit_app_message)
+                            .setPositiveButton(R.string.yes) { _, _ -> finish() }
+                            .setNegativeButton(R.string.no) { _, _ -> }
+                            .setOnDismissListener { navController.navigateUp() }
                             .show()
                     }
                     R.id.editGameFragment -> {
                         AlertDialog.Builder(this@MainActivity)
-                            .setTitle(getString(R.string.confirm_exit_title))
-                            .setMessage(getString(R.string.confirm_discard_changes))
-                            .setPositiveButton(getString(R.string.yes)) { _, _ ->
+                            .setTitle(R.string.confirm_exit_title)
+                            .setMessage(R.string.confirm_discard_changes)
+                            .setPositiveButton(R.string.yes) { _, _ ->
                                 navController.navigateUp()
                             }
-                            .setNegativeButton(getString(R.string.no), null)
+                            .setNegativeButton(R.string.no) { _, _ -> }
                             .show()
                     }
                     else -> {
