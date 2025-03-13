@@ -207,4 +207,25 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             displayDateFormat.format(Date())
         }
     }
+
+    suspend fun deleteAllData() {
+        db.playerDao().getAllPlayers().first().forEach { player ->
+            db.playerDao().deletePlayer(player.id)
+        }
+        db.gameDao().getAllGamesWithPlayers().first().forEach { game ->
+            db.gameDao().deleteGame(game.game.id)
+        }
+    }
+
+    suspend fun insertData(players: List<Player>, games: List<Game>, gamePlayers: List<GamePlayer>) {
+        db.clearAllTables() // Очистка всех таблиц
+        db.playerDao().insertPlayers(players)
+        games.forEach { game ->
+            val gameId = db.gameDao().insertGame(game)
+            val updatedGamePlayers = gamePlayers.filter { it.gameId == game.id }.map {
+                it.copy(gameId = gameId.toInt())
+            }
+            db.gameDao().insertGamePlayers(updatedGamePlayers)
+        }
+    }
 }

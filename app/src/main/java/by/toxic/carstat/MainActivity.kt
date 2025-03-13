@@ -8,6 +8,7 @@ import android.os.Bundle
 import android.util.Log
 import android.view.animation.AccelerateDecelerateInterpolator
 import android.widget.ImageView
+import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
@@ -25,8 +26,10 @@ import com.bumptech.glide.request.RequestOptions
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
-import kotlinx.coroutines.launch
+import com.google.android.gms.common.api.Scope
+import com.google.api.services.drive.DriveScopes
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 import kotlin.random.Random
 
 class MainActivity : AppCompatActivity() {
@@ -36,7 +39,7 @@ class MainActivity : AppCompatActivity() {
     private var isEditing = false
     private lateinit var viewModel: GameViewModel
     private var isCustomBackgroundsEnabled = false
-    private lateinit var googleSignInClient: GoogleSignInClient
+    lateinit var googleSignInClient: GoogleSignInClient
     private val RC_SIGN_IN = 9001
 
     private val signInLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -66,7 +69,7 @@ class MainActivity : AppCompatActivity() {
         viewModel = ViewModelProvider(this).get(GameViewModel::class.java)
 
         val sharedPref = getPreferences(Context.MODE_PRIVATE)
-        val theme = sharedPref.getString("theme", "Follow System")
+        val theme = sharedPref.getString("theme", getString(R.string.theme_follow_system))
         isCustomBackgroundsEnabled = sharedPref.getBoolean("background_enabled", false)
         applyTheme(theme)
 
@@ -105,15 +108,16 @@ class MainActivity : AppCompatActivity() {
 
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestEmail()
+            .requestScopes(Scope(DriveScopes.DRIVE_FILE))
             .build()
         googleSignInClient = GoogleSignIn.getClient(this, gso)
     }
 
     fun applyTheme(theme: String?) {
         when (theme) {
-            "Light" -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
-            "Dark" -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
-            "Follow System" -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
+            getString(R.string.theme_light) -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
+            getString(R.string.theme_dark) -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
+            getString(R.string.theme_follow_system) -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
             else -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
         }
         recreateUI()
@@ -136,7 +140,6 @@ class MainActivity : AppCompatActivity() {
     private fun setRandomBackground(isDarkTheme: Boolean, useCustomBackgrounds: Boolean) {
         if (!useCustomBackgrounds) {
             binding.backgroundImage.setImageDrawable(null)
-            // Используем цвет background из colors.xml, Android сам выберет правильный в зависимости от темы
             val backgroundColor = ContextCompat.getColor(this, R.color.background)
             binding.root.setBackgroundColor(backgroundColor)
             return
@@ -180,13 +183,30 @@ class MainActivity : AppCompatActivity() {
         } catch (e: Exception) {
             Log.e("MainActivity", "Failed to load background: ${e.message}")
             binding.backgroundImage.setImageDrawable(null)
-            binding.root.setBackgroundColor(ContextCompat.getColor(this, R.color.background)) // Используем R.color.background как запасной
+            binding.root.setBackgroundColor(ContextCompat.getColor(this, R.color.background))
         }
     }
 
     fun signInWithGoogle() {
         val signInIntent = googleSignInClient.signInIntent
         signInLauncher.launch(signInIntent)
+    }
+
+    fun signOutFromGoogle() {
+        googleSignInClient.signOut().addOnCompleteListener {
+            Log.d("MainActivity", "Sign out from Google completed")
+            navController?.currentDestination?.let { destination ->
+                if (destination.id == R.id.settingsFragment) {
+                    val fragment = supportFragmentManager.findFragmentById(R.id.nav_host_fragment)
+                        ?.childFragmentManager?.primaryNavigationFragment as? SettingsFragment
+                    fragment?.handleSignInResult(null)
+                }
+            }
+        }
+    }
+
+    fun showToast(message: String) {
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
     }
 
     private fun setupNavBarClicks(navController: NavController) {
@@ -219,15 +239,17 @@ class MainActivity : AppCompatActivity() {
                 R.id.gamesFragment -> {
                     lifecycleScope.launch {
                         viewModel.allPlayers.collectLatest { players ->
-                            if (players.size < 2) {
-                                AlertDialog.Builder(this@MainActivity)
-                                    .setTitle(R.string.confirm_exit_title)
-                                    .setMessage(R.string.minimum_players_to_start_game_error)
-                                    .setPositiveButton(R.string.yes) { _, _ -> }
-                                    .show()
-                            } else {
-                                Log.d("MainActivity", "Navigating to EditGameFragment from Games")
-                                navController.navigate(R.id.action_gamesFragment_to_editGameFragment)
+                            if (navController.currentDestination?.id == R.id.gamesFragment) { // Добавлена проверка
+                                if (players.size < 2) {
+                                    AlertDialog.Builder(this@MainActivity)
+                                        .setTitle(R.string.confirm_exit_title)
+                                        .setMessage(R.string.minimum_players_to_start_game_error)
+                                        .setPositiveButton(R.string.yes) { _, _ -> }
+                                        .show()
+                                } else {
+                                    Log.d("MainActivity", "Navigating to EditGameFragment from Games")
+                                    navController.navigate(R.id.action_gamesFragment_to_editGameFragment)
+                                }
                             }
                         }
                     }
@@ -252,6 +274,10 @@ class MainActivity : AppCompatActivity() {
                     } else {
                         Log.e("MainActivity", "Invalid gameId for editing")
                     }
+                }
+                R.id.settingsFragment -> {
+                    Log.d("MainActivity", "Add clicked on SettingsFragment, no action defined")
+                    // Ничего не делаем или показываем тост, если нужно
                 }
                 else -> {
                     Log.d("MainActivity", "Add clicked, but no action defined for ${navController.currentDestination?.label}")

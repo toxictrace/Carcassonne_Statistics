@@ -9,7 +9,7 @@
     <string name="delete_game">Delete</string>
     <string name="game_date">Date: %s</string>
     <string name="game_players">Players: %s</string>
-    <string name="confirm_delete_game">Are you sure you want to delete this game?</string>
+    <string name="confirm_delete_game">Are you sure you want to delete the game from %s?</string>
     <string name="add_player">Add Player</string>
     <string name="edit_player">Edit</string>
     <string name="delete_player">Delete</string>
@@ -71,8 +71,6 @@
     <string name="minimum_score_error">All scores must be greater than 1 to save the game</string>
     <string name="minimum_players_to_start_game_error">Enter at least 2 players</string>
     <string name="empty_name_error">Player name cannot be empty</string>
-
-    <!-- Новые строки для настроек -->
     <string name="theme">Theme</string>
     <string name="background">Background</string>
     <string name="background_enabled">Enabled (Custom)</string>
@@ -84,4 +82,14 @@
     <string name="load_data">Load Data</string>
     <string name="saving_data">Saving data to Google Drive</string>
     <string name="loading_data">Loading data from Google Drive</string>
+    <string name="sign_out">Sign out</string>
+    <string name="google_avatar_desc">User avatar from Google account</string>
+    <string name="data_saved_success">Data saved to Google Drive successfully</string>
+    <string name="data_save_failed">Failed to save data to Google Drive</string>
+    <string name="data_loaded_success">Data loaded from Google Drive successfully</string>
+    <string name="data_load_failed">Failed to load data from Google Drive</string>
+    <string name="no_data_file_found">No data file found on Google Drive</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+    <string name="theme_follow_system">Follow System</string>
 </resources>

@@ -33,7 +33,13 @@
     <fragment
         android:id="@+id/settingsFragment"
         android:name="by.toxic.carstat.SettingsFragment"
-        android:label="@string/settings" />
+        android:label="@string/settings">
+        <action
+            android:id="@+id/action_settingsFragment_to_gamesFragment"
+            app:destination="@id/gamesFragment"
+            app:popUpTo="@id/gamesFragment"
+            app:popUpToInclusive="true" />
+    </fragment>
     <fragment
         android:id="@+id/editGameFragment"
         android:name="by.toxic.carstat.EditGameFragment"

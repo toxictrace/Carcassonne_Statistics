@@ -92,10 +92,10 @@
                 android:padding="8dp" />
 
             <ImageView
-                android:id="@+id/google_account_icon"
+                android:id="@+id/google_avatar"
                 android:layout_width="24dp"
                 android:layout_height="24dp"
-                android:src="@drawable/ic_google"
+                android:contentDescription="@string/google_avatar_desc"
                 android:layout_gravity="center_vertical"
                 android:visibility="gone" />
 
@@ -109,7 +109,7 @@
                 android:visibility="gone" />
         </LinearLayout>
 
-        <!-- Пункты для сохранения/загрузки данных (скрыты по умолчанию) -->
+        <!-- Пункты для сохранения/загрузки данных -->
         <LinearLayout
             android:id="@+id/data_options_layout"
             android:layout_width="0dp"
