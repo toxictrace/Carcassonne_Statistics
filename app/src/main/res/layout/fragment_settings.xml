@@ -134,7 +134,14 @@
                 android:id="@+id/load_data_button"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="@string/load_data" />
+                android:text="@string/load_data"
+                android:layout_marginBottom="8dp" />
+
+            <Switch
+                android:id="@+id/local_save_switch"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/save_locally" />
         </LinearLayout>
 
     </androidx.constraintlayout.widget.ConstraintLayout>

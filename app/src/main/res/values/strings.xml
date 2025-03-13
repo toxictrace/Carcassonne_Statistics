@@ -92,4 +92,13 @@
     <string name="theme_light">Light</string>
     <string name="theme_dark">Dark</string>
     <string name="theme_follow_system">Follow System</string>
+    <!-- Новые строки -->
+    <string name="save_locally">Save locally</string>
+    <string name="saving_data_locally">Saving data locally</string>
+    <string name="loading_data_locally">Loading data locally</string>
+    <string name="data_saved_locally_success">Data saved locally successfully</string>
+    <string name="data_save_locally_failed">Failed to save data locally</string>
+    <string name="data_loaded_locally_success">Data loaded locally successfully</string>
+    <string name="data_load_locally_failed">Failed to load data locally</string>
+    <string name="no_local_data_file_found">No local data file found</string>
 </resources>

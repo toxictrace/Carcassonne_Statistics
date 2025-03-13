@@ -2,6 +2,8 @@ package by.toxic.carstat
 
 import android.content.Context
 import android.os.Bundle
+import android.os.Environment
+import android.util.Base64
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
@@ -12,7 +14,6 @@ import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
-import androidx.navigation.fragment.findNavController
 import by.toxic.carstat.databinding.FragmentSettingsBinding
 import by.toxic.carstat.db.Game
 import by.toxic.carstat.db.GamePlayer
@@ -37,6 +38,8 @@ import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.BufferedReader
+import java.io.FileInputStream
+import java.io.FileOutputStream
 import java.io.InputStreamReader
 
 class SettingsFragment : Fragment() {
@@ -45,6 +48,7 @@ class SettingsFragment : Fragment() {
     private val binding get() = _binding!!
     private lateinit var mainActivity: MainActivity
     private val gameViewModel: GameViewModel by viewModels({ requireActivity() })
+    private val BACKUP_FILE_NAME = "CarcassonneStatistics.backup"
 
     override fun onAttach(context: Context) {
         super.onAttach(context)
@@ -103,14 +107,25 @@ class SettingsFragment : Fragment() {
             mainActivity.enableCustomBackgrounds(isChecked)
         }
 
+        val isLocalSaveEnabled = sharedPref.getBoolean("local_save_enabled", false)
+        binding.localSaveSwitch.isChecked = isLocalSaveEnabled
+
+        binding.localSaveSwitch.setOnCheckedChangeListener { _, isChecked ->
+            sharedPref.edit().putBoolean("local_save_enabled", isChecked).apply()
+            Log.d("SettingsFragment", "Local save switch changed to: $isChecked")
+        }
+
         val account = GoogleSignIn.getLastSignedInAccount(requireContext())
         updateUI(account)
+        Log.d("SettingsFragment", "onViewCreated: Local save switch initialized to $isLocalSaveEnabled")
 
         binding.googleAccountText.setOnClickListener {
             val accountCheck = GoogleSignIn.getLastSignedInAccount(requireContext())
             if (accountCheck == null) {
+                Log.d("SettingsFragment", "Initiating Google sign-in")
                 mainActivity.signInWithGoogle()
             } else {
+                Log.d("SettingsFragment", "Initiating Google sign-out")
                 mainActivity.signOutFromGoogle()
             }
         }
@@ -118,14 +133,16 @@ class SettingsFragment : Fragment() {
 
     fun handleSignInResult(task: Task<GoogleSignInAccount>?) {
         if (task == null) {
+            Log.d("SettingsFragment", "Handle sign-in result: Task is null, treating as sign-out")
             updateUI(null)
             return
         }
         try {
             val account = task.getResult(ApiException::class.java)
+            Log.d("SettingsFragment", "Sign-in successful for account: ${account.displayName}")
             updateUI(account)
         } catch (e: ApiException) {
-            Log.w("SettingsFragment", "signInResult:failed code=" + e.statusCode)
+            Log.w("SettingsFragment", "Sign-in failed with code: ${e.statusCode}")
             updateUI(null)
             if (isAdded) {
                 Toast.makeText(requireContext(), getString(R.string.sign_in_failed), Toast.LENGTH_SHORT).show()
@@ -134,6 +151,9 @@ class SettingsFragment : Fragment() {
     }
 
     private fun updateUI(account: GoogleSignInAccount?) {
+        val sharedPref = requireActivity().getPreferences(Context.MODE_PRIVATE)
+        val isLocalSaveEnabled = sharedPref.getBoolean("local_save_enabled", false)
+
         if (account != null) {
             binding.googleAccountText.text = getString(R.string.sign_out)
             binding.googleAccountText.visibility = View.VISIBLE
@@ -148,19 +168,43 @@ class SettingsFragment : Fragment() {
                     .placeholder(android.R.drawable.ic_menu_gallery)
                     .into(binding.googleAvatar)
             }
+            if (!sharedPref.contains("local_save_enabled")) {
+                binding.localSaveSwitch.isChecked = false
+                sharedPref.edit().putBoolean("local_save_enabled", false).apply()
+                Log.d("SettingsFragment", "Google account signed in, local save set to false (first time)")
+            } else {
+                binding.localSaveSwitch.isChecked = isLocalSaveEnabled
+                Log.d("SettingsFragment", "Google account signed in, local save restored to $isLocalSaveEnabled")
+            }
         } else {
             binding.googleAccountText.text = getString(R.string.sign_in_google)
             binding.googleAccountText.visibility = View.VISIBLE
             binding.googleAvatar.visibility = View.GONE
             binding.googleAccountName.visibility = View.GONE
-            binding.dataOptionsLayout.visibility = View.GONE
+            binding.dataOptionsLayout.visibility = View.VISIBLE
+            if (!sharedPref.contains("local_save_enabled")) {
+                binding.localSaveSwitch.isChecked = true
+                sharedPref.edit().putBoolean("local_save_enabled", true).apply()
+                Log.d("SettingsFragment", "Google account signed out, local save set to true (first time)")
+            } else {
+                binding.localSaveSwitch.isChecked = isLocalSaveEnabled
+                Log.d("SettingsFragment", "Google account signed out, local save restored to $isLocalSaveEnabled")
+            }
         }
 
         binding.saveDataButton.setOnClickListener {
-            saveDataToGoogleDrive(account)
+            if (binding.localSaveSwitch.isChecked) {
+                saveDataLocally()
+            } else {
+                saveDataToGoogleDrive(account)
+            }
         }
         binding.loadDataButton.setOnClickListener {
-            loadDataFromGoogleDrive(account)
+            if (binding.localSaveSwitch.isChecked) {
+                loadDataLocally()
+            } else {
+                loadDataFromGoogleDrive(account)
+            }
         }
     }
 
@@ -223,9 +267,13 @@ class SettingsFragment : Fragment() {
                     })
                 }
 
+                val jsonString = jsonObject.toString()
+                val encodedData = Base64.encodeToString(jsonString.toByteArray(), Base64.DEFAULT)
+                Log.d("SettingsFragment", "Data encoded to Base64: $encodedData")
+
                 val fileMetadata = File().apply {
-                    name = "carcassonne_data.json"
-                    mimeType = "application/json"
+                    name = BACKUP_FILE_NAME
+                    mimeType = "application/octet-stream"
                 }
 
                 Log.d("SettingsFragment", "Attempting to list files created by this app")
@@ -237,10 +285,10 @@ class SettingsFragment : Fragment() {
                     Log.d("SettingsFragment", "Files found: ${files.size}, details: ${
                         files.joinToString { "name=${it.name}, id=${it.id}, trashed=${it.trashed}" }
                     }")
-                    files.firstOrNull { it.name == "carcassonne_data.json" && it.trashed != true }
+                    files.firstOrNull { it.name == BACKUP_FILE_NAME && it.trashed != true }
                 }
 
-                val content = ByteArrayContent.fromString("application/json", jsonObject.toString())
+                val content = ByteArrayContent.fromString("application/octet-stream", encodedData)
                 withContext(Dispatchers.IO) {
                     if (existingFile != null) {
                         Log.d("SettingsFragment", "Updating existing file with ID: ${existingFile.id}")
@@ -265,6 +313,80 @@ class SettingsFragment : Fragment() {
                         Toast.makeText(requireContext(), getString(R.string.data_save_failed), Toast.LENGTH_SHORT).show()
                     } else {
                         mainActivity.showToast(getString(R.string.data_save_failed))
+                    }
+                }
+            }
+        }
+    }
+
+    private fun saveDataLocally() {
+        if (isAdded) {
+            Toast.makeText(requireContext(), getString(R.string.saving_data_locally), Toast.LENGTH_SHORT).show()
+        }
+        lifecycleScope.launch {
+            try {
+                val (players, games) = withContext(Dispatchers.IO) {
+                    val playersList: List<Player> = gameViewModel.getAllPlayersList().first()
+                    val gamesList: List<GameWithPlayers> = gameViewModel.allGames.first()
+                    Pair(playersList, gamesList)
+                }
+
+                val jsonObject = JSONObject().apply {
+                    put("players", JSONArray().apply {
+                        players.forEach { player: Player ->
+                            put(JSONObject().apply {
+                                put("id", player.id)
+                                put("name", player.name)
+                                put("frameId", player.frameId)
+                            })
+                        }
+                    })
+                    put("games", JSONArray().apply {
+                        games.forEach { gameWithPlayers: GameWithPlayers ->
+                            put(JSONObject().apply {
+                                put("id", gameWithPlayers.game.id)
+                                put("date", gameWithPlayers.game.date)
+                                put("gamePlayers", JSONArray().apply {
+                                    gameWithPlayers.gamePlayers.forEach { gamePlayer: GamePlayer ->
+                                        put(JSONObject().apply {
+                                            put("gameId", gamePlayer.gameId)
+                                            put("playerId", gamePlayer.playerId)
+                                            put("score", gamePlayer.score)
+                                            put("color", gamePlayer.color)
+                                        })
+                                    }
+                                })
+                            })
+                        }
+                    })
+                }
+
+                val jsonString = jsonObject.toString()
+                val encodedData = Base64.encodeToString(jsonString.toByteArray(), Base64.DEFAULT)
+                Log.d("SettingsFragment", "Data encoded to Base64 for local save: $encodedData")
+
+                val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                val backupFile = java.io.File(downloadsDir, BACKUP_FILE_NAME)
+                withContext(Dispatchers.IO) {
+                    FileOutputStream(backupFile).use { fos ->
+                        fos.write(encodedData.toByteArray())
+                    }
+                }
+
+                withContext(Dispatchers.Main) {
+                    if (isAdded) {
+                        Toast.makeText(requireContext(), getString(R.string.data_saved_locally_success), Toast.LENGTH_SHORT).show()
+                    } else {
+                        mainActivity.showToast(getString(R.string.data_saved_locally_success))
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("SettingsFragment", "Failed to save data locally: ${e.message}", e)
+                withContext(Dispatchers.Main) {
+                    if (isAdded) {
+                        Toast.makeText(requireContext(), getString(R.string.data_save_locally_failed), Toast.LENGTH_SHORT).show()
+                    } else {
+                        mainActivity.showToast(getString(R.string.data_save_locally_failed))
                     }
                 }
             }
@@ -303,11 +425,11 @@ class SettingsFragment : Fragment() {
                     Log.d("SettingsFragment", "Files found: ${files.size}, details: ${
                         files.joinToString { "name=${it.name}, id=${it.id}, trashed=${it.trashed}" }
                     }")
-                    files.firstOrNull { it.name == "carcassonne_data.json" && it.trashed != true }
+                    files.firstOrNull { it.name == BACKUP_FILE_NAME && it.trashed != true }
                 }
 
                 if (file == null) {
-                    Log.d("SettingsFragment", "No file named 'carcassonne_data.json' found or it is trashed")
+                    Log.d("SettingsFragment", "No file named '$BACKUP_FILE_NAME' found or it is trashed")
                     withContext(Dispatchers.Main) {
                         if (isAdded) {
                             Toast.makeText(requireContext(), getString(R.string.no_data_file_found), Toast.LENGTH_SHORT).show()
@@ -319,15 +441,24 @@ class SettingsFragment : Fragment() {
                 }
 
                 Log.d("SettingsFragment", "Found file with ID: ${file.id}, attempting to load content")
-                val inputStream = withContext(Dispatchers.IO) {
-                    driveService.files().get(file.id).executeMediaAsInputStream()
+                val encodedData = withContext(Dispatchers.IO) {
+                    val inputStream = driveService.files().get(file.id).executeMediaAsInputStream()
+                    BufferedReader(InputStreamReader(inputStream)).use { it.readText() }
                 }
-                val jsonString = BufferedReader(InputStreamReader(inputStream)).use { it.readText() }
-                Log.d("SettingsFragment", "File content loaded: $jsonString")
+                Log.d("SettingsFragment", "Raw encoded data from Google Drive: $encodedData")
+
+                val jsonString = try {
+                    String(Base64.decode(encodedData, Base64.DEFAULT))
+                } catch (e: IllegalArgumentException) {
+                    Log.e("SettingsFragment", "Base64 decoding failed: ${e.message}")
+                    throw Exception("Invalid Base64 data from Google Drive")
+                }
+                Log.d("SettingsFragment", "Decoded JSON string: $jsonString")
 
                 val jsonObject = JSONObject(jsonString)
                 val playersArray = jsonObject.getJSONArray("players")
                 val gamesArray = jsonObject.getJSONArray("games")
+                Log.d("SettingsFragment", "Parsed JSON - Players: ${playersArray.length()}, Games: ${gamesArray.length()}")
 
                 val players = mutableListOf<Player>()
                 for (i in 0 until playersArray.length()) {
@@ -359,12 +490,10 @@ class SettingsFragment : Fragment() {
                     }
                 }
 
-                // Обновляем базу данных в фоновом потоке
                 withContext(Dispatchers.IO) {
                     gameViewModel.insertData(players, games, gamePlayers)
                 }
 
-                // Показываем тост об успехе, остаёмся на Settings
                 withContext(Dispatchers.Main) {
                     if (isAdded) {
                         Toast.makeText(requireContext(), getString(R.string.data_loaded_success), Toast.LENGTH_SHORT).show()
@@ -379,6 +508,100 @@ class SettingsFragment : Fragment() {
                         Toast.makeText(requireContext(), getString(R.string.data_load_failed), Toast.LENGTH_SHORT).show()
                     } else {
                         mainActivity.showToast(getString(R.string.data_load_failed))
+                    }
+                }
+            }
+        }
+    }
+
+    private fun loadDataLocally() {
+        if (isAdded) {
+            Toast.makeText(requireContext(), getString(R.string.loading_data_locally), Toast.LENGTH_SHORT).show()
+        }
+        lifecycleScope.launch {
+            try {
+                val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                val backupFile = java.io.File(downloadsDir, BACKUP_FILE_NAME)
+                if (!backupFile.exists()) {
+                    Log.d("SettingsFragment", "No local file named '$BACKUP_FILE_NAME' found")
+                    withContext(Dispatchers.Main) {
+                        if (isAdded) {
+                            Toast.makeText(requireContext(), getString(R.string.no_local_data_file_found), Toast.LENGTH_SHORT).show()
+                        } else {
+                            mainActivity.showToast(getString(R.string.no_local_data_file_found))
+                        }
+                    }
+                    return@launch
+                }
+
+                val encodedData = withContext(Dispatchers.IO) {
+                    FileInputStream(backupFile).use { fis ->
+                        fis.readBytes().toString(Charsets.UTF_8)
+                    }
+                }
+                Log.d("SettingsFragment", "Raw encoded data from local file: $encodedData")
+
+                val jsonString = try {
+                    String(Base64.decode(encodedData, Base64.DEFAULT))
+                } catch (e: IllegalArgumentException) {
+                    Log.e("SettingsFragment", "Base64 decoding failed: ${e.message}")
+                    throw Exception("Invalid Base64 data from local file")
+                }
+                Log.d("SettingsFragment", "Decoded JSON string: $jsonString")
+
+                val jsonObject = JSONObject(jsonString)
+                val playersArray = jsonObject.getJSONArray("players")
+                val gamesArray = jsonObject.getJSONArray("games")
+                Log.d("SettingsFragment", "Parsed JSON - Players: ${playersArray.length()}, Games: ${gamesArray.length()}")
+
+                val players = mutableListOf<Player>()
+                for (i in 0 until playersArray.length()) {
+                    val playerJson = playersArray.getJSONObject(i)
+                    players.add(Player(
+                        id = playerJson.getInt("id"),
+                        name = playerJson.getString("name"),
+                        frameId = playerJson.getInt("frameId")
+                    ))
+                }
+
+                val games = mutableListOf<Game>()
+                val gamePlayers = mutableListOf<GamePlayer>()
+                for (i in 0 until gamesArray.length()) {
+                    val gameJson = gamesArray.getJSONObject(i)
+                    games.add(Game(
+                        id = gameJson.getInt("id"),
+                        date = gameJson.getString("date")
+                    ))
+                    val gamePlayersArray = gameJson.getJSONArray("gamePlayers")
+                    for (j in 0 until gamePlayersArray.length()) {
+                        val gpJson = gamePlayersArray.getJSONObject(j)
+                        gamePlayers.add(GamePlayer(
+                            gameId = gpJson.getInt("gameId"),
+                            playerId = gpJson.getInt("playerId"),
+                            score = gpJson.getInt("score"),
+                            color = if (gpJson.has("color")) gpJson.getString("color") else null
+                        ))
+                    }
+                }
+
+                withContext(Dispatchers.IO) {
+                    gameViewModel.insertData(players, games, gamePlayers)
+                }
+
+                withContext(Dispatchers.Main) {
+                    if (isAdded) {
+                        Toast.makeText(requireContext(), getString(R.string.data_loaded_locally_success), Toast.LENGTH_SHORT).show()
+                    } else {
+                        mainActivity.showToast(getString(R.string.data_loaded_locally_success))
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("SettingsFragment", "Failed to load data locally: ${e.message}", e)
+                withContext(Dispatchers.Main) {
+                    if (isAdded) {
+                        Toast.makeText(requireContext(), getString(R.string.data_load_locally_failed), Toast.LENGTH_SHORT).show()
+                    } else {
+                        mainActivity.showToast(getString(R.string.data_load_locally_failed))
                     }
                 }
             }
