@@ -52,7 +52,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     suspend fun doesPlayerExist(name: String): Boolean {
         return try {
-            db.playerDao().getAllPlayers().first().any { it.name.equals(name, ignoreCase = true) }
+            db.playerDao().getAllPlayers().first().any { it.name == name } // Изменено с equals(name, ignoreCase = true) на ==
         } catch (e: Exception) {
             Log.e("GameViewModel", "Error checking player existence: ${e.message}", e)
             false

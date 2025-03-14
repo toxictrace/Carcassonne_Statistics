@@ -49,6 +49,7 @@ class SettingsFragment : Fragment() {
     private lateinit var mainActivity: MainActivity
     private val gameViewModel: GameViewModel by viewModels({ requireActivity() })
     private val BACKUP_FILE_NAME = "CarcassonneStatistics.backup"
+    private var lastAccountState: Boolean = false // Храним, был ли аккаунт активен (true/false)
 
     override fun onAttach(context: Context) {
         super.onAttach(context)
@@ -67,6 +68,10 @@ class SettingsFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        val sharedPref = requireActivity().getPreferences(Context.MODE_PRIVATE)
+        // Восстанавливаем последнее состояние аккаунта
+        lastAccountState = sharedPref.getBoolean("is_account_signed_in", false)
+
         val themes = arrayOf(
             getString(R.string.theme_light),
             getString(R.string.theme_dark),
@@ -76,7 +81,6 @@ class SettingsFragment : Fragment() {
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         binding.themeSpinner.adapter = adapter
 
-        val sharedPref = requireActivity().getPreferences(Context.MODE_PRIVATE)
         val savedTheme = sharedPref.getString("theme", getString(R.string.theme_follow_system))
         val themePosition = themes.indexOf(savedTheme)
         if (themePosition != -1) {
@@ -107,6 +111,7 @@ class SettingsFragment : Fragment() {
             mainActivity.enableCustomBackgrounds(isChecked)
         }
 
+        // Восстанавливаем состояние "Save locally" из SharedPreferences
         val isLocalSaveEnabled = sharedPref.getBoolean("local_save_enabled", false)
         binding.localSaveSwitch.isChecked = isLocalSaveEnabled
 
@@ -120,14 +125,13 @@ class SettingsFragment : Fragment() {
         Log.d("SettingsFragment", "onViewCreated: Local save switch initialized to $isLocalSaveEnabled")
 
         binding.googleAccountText.setOnClickListener {
-            val accountCheck = GoogleSignIn.getLastSignedInAccount(requireContext())
-            if (accountCheck == null) {
-                Log.d("SettingsFragment", "Initiating Google sign-in")
-                mainActivity.signInWithGoogle()
-            } else {
-                Log.d("SettingsFragment", "Initiating Google sign-out")
-                mainActivity.signOutFromGoogle()
-            }
+            Log.d("SettingsFragment", "Initiating Google sign-in")
+            mainActivity.signInWithGoogle()
+        }
+
+        binding.googleSignOutButton.setOnClickListener {
+            Log.d("SettingsFragment", "Initiating Google sign-out")
+            mainActivity.signOutFromGoogle()
         }
     }
 
@@ -154,13 +158,17 @@ class SettingsFragment : Fragment() {
         val sharedPref = requireActivity().getPreferences(Context.MODE_PRIVATE)
         val isLocalSaveEnabled = sharedPref.getBoolean("local_save_enabled", false)
 
+        // Сохраняем текущее состояние аккаунта
+        val isAccountSignedIn = account != null
+        sharedPref.edit().putBoolean("is_account_signed_in", isAccountSignedIn).apply()
+
         if (account != null) {
-            binding.googleAccountText.text = getString(R.string.sign_out)
-            binding.googleAccountText.visibility = View.VISIBLE
+            binding.googleAccountText.visibility = View.GONE
             binding.googleAvatar.visibility = View.VISIBLE
             binding.googleAccountName.visibility = View.VISIBLE
-            binding.googleAccountName.text = account.displayName
+            binding.googleSignOutButton.visibility = View.VISIBLE
             binding.dataOptionsLayout.visibility = View.VISIBLE
+            binding.googleAccountName.text = account.displayName
             account.photoUrl?.let { photoUrl ->
                 Glide.with(this)
                     .load(photoUrl)
@@ -168,29 +176,41 @@ class SettingsFragment : Fragment() {
                     .placeholder(android.R.drawable.ic_menu_gallery)
                     .into(binding.googleAvatar)
             }
-            if (!sharedPref.contains("local_save_enabled")) {
+            // Разрешаем пользователю менять переключатель
+            binding.localSaveSwitch.isEnabled = true
+
+            // Если пользователь только что вошёл в аккаунт (был выход, теперь вход), устанавливаем начальное состояние
+            if (!lastAccountState && isAccountSignedIn) {
                 binding.localSaveSwitch.isChecked = false
                 sharedPref.edit().putBoolean("local_save_enabled", false).apply()
-                Log.d("SettingsFragment", "Google account signed in, local save set to false (first time)")
+                Log.d("SettingsFragment", "Google account signed in, local save set to false")
             } else {
+                // Восстанавливаем сохранённое состояние, если оно было изменено вручную
                 binding.localSaveSwitch.isChecked = isLocalSaveEnabled
-                Log.d("SettingsFragment", "Google account signed in, local save restored to $isLocalSaveEnabled")
             }
         } else {
-            binding.googleAccountText.text = getString(R.string.sign_in_google)
             binding.googleAccountText.visibility = View.VISIBLE
             binding.googleAvatar.visibility = View.GONE
             binding.googleAccountName.visibility = View.GONE
+            binding.googleSignOutButton.visibility = View.GONE
             binding.dataOptionsLayout.visibility = View.VISIBLE
-            if (!sharedPref.contains("local_save_enabled")) {
+
+            // Если пользователь только что вышел из аккаунта (был вход, теперь выход), включаем переключатель
+            if (lastAccountState && !isAccountSignedIn) {
                 binding.localSaveSwitch.isChecked = true
+                binding.localSaveSwitch.isEnabled = false
                 sharedPref.edit().putBoolean("local_save_enabled", true).apply()
-                Log.d("SettingsFragment", "Google account signed out, local save set to true (first time)")
+                Log.d("SettingsFragment", "Google account signed out, local save forced to true")
             } else {
-                binding.localSaveSwitch.isChecked = isLocalSaveEnabled
-                Log.d("SettingsFragment", "Google account signed out, local save restored to $isLocalSaveEnabled")
+                // Когда не в аккаунте, переключатель всегда включён и неактивен
+                binding.localSaveSwitch.isChecked = true
+                binding.localSaveSwitch.isEnabled = false
+                sharedPref.edit().putBoolean("local_save_enabled", true).apply()
             }
         }
+
+        // Обновляем последнее состояние аккаунта
+        lastAccountState = isAccountSignedIn
 
         binding.saveDataButton.setOnClickListener {
             if (binding.localSaveSwitch.isChecked) {

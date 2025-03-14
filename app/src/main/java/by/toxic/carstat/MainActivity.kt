@@ -6,7 +6,10 @@ import android.content.Intent
 import android.content.res.Configuration
 import android.os.Bundle
 import android.util.Log
+import android.view.View
 import android.view.animation.AccelerateDecelerateInterpolator
+import android.view.animation.Animation
+import android.view.animation.AnimationUtils
 import android.widget.ImageView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
@@ -39,6 +42,12 @@ class MainActivity : AppCompatActivity() {
     private var isEditing = false
     private lateinit var viewModel: GameViewModel
     private var isCustomBackgroundsEnabled = false
+    private var lastSelectedIcon: ImageView? = null
+    private var isAddButtonVisible = true
+    private var isEditButtonMode = false
+    private var isHidingAddButton = false
+    private var isAnimating = false
+    private var areNavIconsVisible = true
     lateinit var googleSignInClient: GoogleSignInClient
     private val RC_SIGN_IN = 9001
 
@@ -78,6 +87,15 @@ class MainActivity : AppCompatActivity() {
 
         setRandomBackground(isDarkTheme, isCustomBackgroundsEnabled)
 
+        val normalSizeDp = 48
+        val density = resources.displayMetrics.density
+        val normalSizePx = (normalSizeDp * density).toInt()
+        setIconSize(binding.navIconGames, normalSizePx)
+        setIconSize(binding.navIconPlayers, normalSizePx)
+        setIconSize(binding.navIconAdd, normalSizePx)
+        setIconSize(binding.navIconStatistics, normalSizePx)
+        setIconSize(binding.navIconSettings, normalSizePx)
+
         val navHostFragment = supportFragmentManager.findFragmentById(R.id.nav_host_fragment)
         if (navHostFragment == null) {
             Log.e("MainActivity", "NavHostFragment is null!")
@@ -96,10 +114,12 @@ class MainActivity : AppCompatActivity() {
                         }
                         Log.d("MainActivity", "Editing mode: $isEditing, Destination: ${destination.label}")
                         setRandomBackground(isDarkTheme, isCustomBackgroundsEnabled)
-                        updateNavBarIconSizes(destination.id)
+                        if (!isAnimating) updateNavBarIconAndAnimation(destination.id)
                     }
                     setupNavBarClicks(navCtrl)
                     setupBackPressedHandler(navCtrl)
+
+                    navCtrl.currentDestination?.id?.let { updateNavBarIconAndAnimation(it) }
                 } ?: Log.e("MainActivity", "NavController is null!")
             } catch (e: Exception) {
                 Log.e("MainActivity", "Error initializing NavController: ${e.message}")
@@ -126,7 +146,7 @@ class MainActivity : AppCompatActivity() {
     private fun recreateUI() {
         val isDarkTheme = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
         setRandomBackground(isDarkTheme, isCustomBackgroundsEnabled)
-        navController?.currentDestination?.let { updateNavBarIconSizes(it.id) }
+        navController?.currentDestination?.let { if (!isAnimating) updateNavBarIconAndAnimation(it.id) }
     }
 
     fun enableCustomBackgrounds(enabled: Boolean) {
@@ -239,7 +259,7 @@ class MainActivity : AppCompatActivity() {
                 R.id.gamesFragment -> {
                     lifecycleScope.launch {
                         viewModel.allPlayers.collectLatest { players ->
-                            if (navController.currentDestination?.id == R.id.gamesFragment) { // Добавлена проверка
+                            if (navController.currentDestination?.id == R.id.gamesFragment) {
                                 if (players.size < 2) {
                                     AlertDialog.Builder(this@MainActivity)
                                         .setTitle(R.string.confirm_exit_title)
@@ -275,12 +295,21 @@ class MainActivity : AppCompatActivity() {
                         Log.e("MainActivity", "Invalid gameId for editing")
                     }
                 }
+                R.id.playerProfileFragment -> {
+                    Log.d("MainActivity", "Navigating to EditPlayerFragment from PlayerProfileFragment")
+                    val playerId = navController.currentBackStackEntry?.arguments?.getInt("playerId", -1) ?: -1
+                    if (playerId != -1) {
+                        val bundle = Bundle().apply { putInt("playerId", playerId) }
+                        navController.navigate(R.id.action_playerProfileFragment_to_editPlayerFragment, bundle)
+                    } else {
+                        Log.e("MainActivity", "Invalid playerId for editing")
+                    }
+                }
                 R.id.settingsFragment -> {
-                    Log.d("MainActivity", "Add clicked on SettingsFragment, no action defined")
-                    // Ничего не делаем или показываем тост, если нужно
+                    Log.d("MainActivity", "Add/Edit clicked on SettingsFragment, no action defined")
                 }
                 else -> {
-                    Log.d("MainActivity", "Add clicked, but no action defined for ${navController.currentDestination?.label}")
+                    Log.d("MainActivity", "Add/Edit clicked, but no action defined for ${navController.currentDestination?.label}")
                 }
             }
         }
@@ -310,13 +339,21 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun updateNavBarIconSizes(destinationId: Int) {
+    private fun updateNavBarIconAndAnimation(destinationId: Int) {
+        Log.d("MainActivity", "Updating Navbar for destination: $destinationId, isAnimating: $isAnimating")
+        if (isAnimating) {
+            Log.d("MainActivity", "Animation in progress, skipping update")
+            return
+        }
+
         val normalSizeDp = 48
         val selectedSizeDp = 72
-
         val density = resources.displayMetrics.density
         val normalSizePx = (normalSizeDp * density).toInt()
         val selectedSizePx = (selectedSizeDp * density).toInt()
+
+        val previousIcon = lastSelectedIcon
+        Log.d("MainActivity", "Previous selected icon: $previousIcon")
 
         binding.navIconGames.clearAnimation()
         binding.navIconPlayers.clearAnimation()
@@ -324,24 +361,138 @@ class MainActivity : AppCompatActivity() {
         binding.navIconStatistics.clearAnimation()
         binding.navIconSettings.clearAnimation()
 
-        setIconSize(binding.navIconGames, normalSizePx)
-        setIconSize(binding.navIconPlayers, normalSizePx)
-        setIconSize(binding.navIconAdd, normalSizePx)
-        setIconSize(binding.navIconStatistics, normalSizePx)
-        setIconSize(binding.navIconSettings, normalSizePx)
+        if (isAddButtonVisible && !isHidingAddButton) {
+            setIconSize(binding.navIconAdd, normalSizePx)
+            Log.d("MainActivity", "Set Add button size to normal: $normalSizePx")
+        }
 
+        // Устанавливаем увеличение иконок в зависимости от текущего экрана
         when (destinationId) {
             R.id.gamesFragment, R.id.viewGameFragment, R.id.editGameFragment -> {
-                animateIconSize(binding.navIconGames, selectedSizePx)
+                if (previousIcon != null && previousIcon != binding.navIconGames && previousIcon != binding.navIconAdd) {
+                    Log.d("MainActivity", "Animating shrink for previous icon: $previousIcon, current size: ${previousIcon.layoutParams.width}")
+                    animateIconSize(previousIcon, normalSizePx)
+                }
+                Log.d("MainActivity", "Games icon current size: ${binding.navIconGames.layoutParams.width}, expected: $selectedSizePx")
+                if (binding.navIconGames.layoutParams.width != selectedSizePx) {
+                    Log.d("MainActivity", "Animating grow for Games icon")
+                    animateIconSize(binding.navIconGames, selectedSizePx)
+                } else {
+                    Log.d("MainActivity", "Games icon already at selected size, skipping animation")
+                }
+                lastSelectedIcon = binding.navIconGames
             }
             R.id.playersFragment, R.id.editPlayerFragment, R.id.playerProfileFragment -> {
-                animateIconSize(binding.navIconPlayers, selectedSizePx)
+                if (previousIcon != null && previousIcon != binding.navIconPlayers && previousIcon != binding.navIconAdd) {
+                    Log.d("MainActivity", "Animating shrink for previous icon: $previousIcon, current size: ${previousIcon.layoutParams.width}")
+                    animateIconSize(previousIcon, normalSizePx)
+                }
+                Log.d("MainActivity", "Players icon current size: ${binding.navIconPlayers.layoutParams.width}, expected: $selectedSizePx")
+                if (binding.navIconPlayers.layoutParams.width != selectedSizePx) {
+                    Log.d("MainActivity", "Animating grow for Players icon")
+                    animateIconSize(binding.navIconPlayers, selectedSizePx)
+                } else {
+                    Log.d("MainActivity", "Players icon already at selected size, skipping animation")
+                }
+                lastSelectedIcon = binding.navIconPlayers
             }
             R.id.statisticsFragment -> {
-                animateIconSize(binding.navIconStatistics, selectedSizePx)
+                if (previousIcon != null && previousIcon != binding.navIconStatistics && previousIcon != binding.navIconAdd) {
+                    Log.d("MainActivity", "Animating shrink for previous icon: $previousIcon, current size: ${previousIcon.layoutParams.width}")
+                    animateIconSize(previousIcon, normalSizePx)
+                }
+                Log.d("MainActivity", "Statistics icon current size: ${binding.navIconStatistics.layoutParams.width}, expected: $selectedSizePx")
+                if (binding.navIconStatistics.layoutParams.width != selectedSizePx) {
+                    Log.d("MainActivity", "Animating grow for Statistics icon")
+                    animateIconSize(binding.navIconStatistics, selectedSizePx)
+                } else {
+                    Log.d("MainActivity", "Statistics icon already at selected size, skipping animation")
+                }
+                lastSelectedIcon = binding.navIconStatistics
             }
             R.id.settingsFragment -> {
-                animateIconSize(binding.navIconSettings, selectedSizePx)
+                if (previousIcon != null && previousIcon != binding.navIconSettings && previousIcon != binding.navIconAdd) {
+                    Log.d("MainActivity", "Animating shrink for previous icon: $previousIcon, current size: ${previousIcon.layoutParams.width}")
+                    animateIconSize(previousIcon, normalSizePx)
+                }
+                Log.d("MainActivity", "Settings icon current size: ${binding.navIconSettings.layoutParams.width}, expected: $selectedSizePx")
+                if (binding.navIconSettings.layoutParams.width != selectedSizePx) {
+                    Log.d("MainActivity", "Animating grow for Settings icon")
+                    animateIconSize(binding.navIconSettings, selectedSizePx)
+                } else {
+                    Log.d("MainActivity", "Settings icon already at selected size, skipping animation")
+                }
+                lastSelectedIcon = binding.navIconSettings
+            }
+        }
+
+        // Управление видимостью кнопок
+        when (destinationId) {
+            R.id.gamesFragment, R.id.playersFragment -> {
+                Log.d("MainActivity", "Showing all icons and Add button for destination: $destinationId")
+                if (!areNavIconsVisible) {
+                    showNavBarIcons(normalSizePx)
+                }
+                if (!isAddButtonVisible) {
+                    showAddButton(normalSizePx)
+                } else if (isEditButtonMode) {
+                    animateReplaceEditWithAdd(normalSizePx)
+                }
+                // Принудительное увеличение активной иконки после показа с замедленной анимацией
+                when (destinationId) {
+                    R.id.gamesFragment -> {
+                        if (binding.navIconGames.layoutParams.width != selectedSizePx) {
+                            Log.d("MainActivity", "Forcing grow for Games icon after show with slow animation")
+                            animateIconSize(binding.navIconGames, selectedSizePx, 600) // Замедляем до 600 мс
+                        }
+                    }
+                    R.id.playersFragment -> {
+                        if (binding.navIconPlayers.layoutParams.width != selectedSizePx) {
+                            Log.d("MainActivity", "Forcing grow for Players icon after show with slow animation")
+                            animateIconSize(binding.navIconPlayers, selectedSizePx, 600) // Замедляем до 600 мс
+                        }
+                    }
+                }
+            }
+            R.id.statisticsFragment, R.id.settingsFragment -> {
+                Log.d("MainActivity", "Showing all icons, hiding Add button for destination: $destinationId")
+                if (!areNavIconsVisible) {
+                    showNavBarIcons(normalSizePx)
+                }
+                if (isAddButtonVisible) {
+                    hideAddButton()
+                }
+            }
+            R.id.editGameFragment -> {
+                Log.d("MainActivity", "Hiding all icons except Add for EditGameFragment")
+                if (areNavIconsVisible) {
+                    hideNavBarIcons()
+                }
+                if (!isAddButtonVisible) {
+                    showAddButton(normalSizePx)
+                } else if (isEditButtonMode) {
+                    animateReplaceEditWithAdd(normalSizePx)
+                }
+            }
+            R.id.viewGameFragment, R.id.playerProfileFragment -> {
+                Log.d("MainActivity", "Hiding all icons except Edit for destination: $destinationId")
+                if (areNavIconsVisible) {
+                    hideNavBarIcons()
+                }
+                if (isAddButtonVisible && !isEditButtonMode) {
+                    animateReplaceAddWithEdit(normalSizePx)
+                } else if (!isAddButtonVisible) {
+                    showEditButton(normalSizePx)
+                }
+            }
+            R.id.editPlayerFragment -> {
+                Log.d("MainActivity", "Hiding all icons for EditPlayerFragment")
+                if (areNavIconsVisible) {
+                    hideNavBarIcons()
+                }
+                if (isAddButtonVisible) {
+                    hideAddButton()
+                }
             }
         }
     }
@@ -354,12 +505,13 @@ class MainActivity : AppCompatActivity() {
         imageView.requestLayout()
     }
 
-    private fun animateIconSize(imageView: ImageView, targetSizePx: Int) {
+    private fun animateIconSize(imageView: ImageView, targetSizePx: Int, duration: Long = 400) {
         val currentSizePx = imageView.layoutParams.width
         if (currentSizePx == targetSizePx) return
 
+        isAnimating = true
         val animator = ValueAnimator.ofInt(currentSizePx, targetSizePx)
-        animator.duration = 200
+        animator.duration = duration // Используем переданную длительность
         animator.interpolator = AccelerateDecelerateInterpolator()
         animator.addUpdateListener { animation ->
             val value = animation.animatedValue as Int
@@ -369,7 +521,272 @@ class MainActivity : AppCompatActivity() {
             imageView.layoutParams = layoutParams
             imageView.requestLayout()
         }
+        animator.addListener(object : android.animation.Animator.AnimatorListener {
+            override fun onAnimationStart(animation: android.animation.Animator) {
+                Log.d("MainActivity", "Animation started for icon: $imageView with duration: $duration")
+            }
+
+            override fun onAnimationEnd(animation: android.animation.Animator) {
+                isAnimating = false
+                Log.d("MainActivity", "Animation ended for icon: $imageView")
+            }
+
+            override fun onAnimationCancel(animation: android.animation.Animator) {
+                isAnimating = false
+                Log.d("MainActivity", "Animation canceled for icon: $imageView")
+            }
+
+            override fun onAnimationRepeat(animation: android.animation.Animator) {}
+        })
         animator.start()
+    }
+    private fun animateReplaceAddWithEdit(targetSizePx: Int) {
+        Log.d("MainActivity", "Animating replace Add with Edit")
+        val addIcon = binding.navIconAdd
+        addIcon.clearAnimation()
+        setIconSize(addIcon, targetSizePx)
+        Log.d("MainActivity", "Add icon size before animation: ${addIcon.layoutParams.width}x${addIcon.layoutParams.height}")
+
+        isAnimating = true
+        val animation = AnimationUtils.loadAnimation(this, R.anim.scale_up_and_shrink_to_dot)
+        animation.setAnimationListener(object : Animation.AnimationListener {
+            override fun onAnimationStart(animation: Animation?) {
+                Log.d("MainActivity", "Scale up and shrink animation started for Add to Edit")
+            }
+            override fun onAnimationEnd(animation: Animation?) {
+                Log.d("MainActivity", "Scale up and shrink animation ended, replacing with Edit")
+                addIcon.setImageResource(R.drawable.button_edit)
+                addIcon.contentDescription = getString(R.string.edit_player)
+                isEditButtonMode = true
+                setIconSize(addIcon, targetSizePx)
+                Log.d("MainActivity", "Add icon size after shrink: ${addIcon.layoutParams.width}x${addIcon.layoutParams.height}")
+                val growAnimation = AnimationUtils.loadAnimation(this@MainActivity, R.anim.grow_from_dot)
+                growAnimation.setAnimationListener(object : Animation.AnimationListener {
+                    override fun onAnimationStart(animation: Animation?) {
+                        Log.d("MainActivity", "Grow animation started for Edit button")
+                    }
+                    override fun onAnimationEnd(animation: Animation?) {
+                        Log.d("MainActivity", "Grow animation ended for Edit button")
+                        setIconSize(addIcon, targetSizePx)
+                        Log.d("MainActivity", "Add icon size after grow: ${addIcon.layoutParams.width}x${addIcon.layoutParams.height}")
+                        isAnimating = false
+                    }
+                    override fun onAnimationRepeat(animation: Animation?) {}
+                })
+                addIcon.startAnimation(growAnimation)
+            }
+            override fun onAnimationRepeat(animation: Animation?) {}
+        })
+        addIcon.startAnimation(animation)
+    }
+
+    private fun animateReplaceEditWithAdd(targetSizePx: Int) {
+        Log.d("MainActivity", "Animating replace Edit with Add")
+        val addIcon = binding.navIconAdd
+        addIcon.clearAnimation()
+        setIconSize(addIcon, targetSizePx)
+        Log.d("MainActivity", "Edit icon size before animation: ${addIcon.layoutParams.width}x${addIcon.layoutParams.height}")
+
+        isAnimating = true
+        val animation = AnimationUtils.loadAnimation(this, R.anim.scale_up_and_shrink_to_dot)
+        animation.setAnimationListener(object : Animation.AnimationListener {
+            override fun onAnimationStart(animation: Animation?) {
+                Log.d("MainActivity", "Scale up and shrink animation started for Edit to Add")
+            }
+            override fun onAnimationEnd(animation: Animation?) {
+                Log.d("MainActivity", "Scale up and shrink animation ended, replacing with Add")
+                addIcon.setImageResource(R.drawable.ic_add_icon)
+                addIcon.contentDescription = getString(R.string.add_player)
+                isEditButtonMode = false
+                setIconSize(addIcon, targetSizePx)
+                Log.d("MainActivity", "Edit icon size after shrink: ${addIcon.layoutParams.width}x${addIcon.layoutParams.height}")
+                val growAnimation = AnimationUtils.loadAnimation(this@MainActivity, R.anim.grow_from_dot)
+                growAnimation.setAnimationListener(object : Animation.AnimationListener {
+                    override fun onAnimationStart(animation: Animation?) {
+                        Log.d("MainActivity", "Grow animation started for Add button")
+                    }
+                    override fun onAnimationEnd(animation: Animation?) {
+                        Log.d("MainActivity", "Grow animation ended for Add button")
+                        setIconSize(addIcon, targetSizePx)
+                        Log.d("MainActivity", "Edit icon size after grow: ${addIcon.layoutParams.width}x${addIcon.layoutParams.height}")
+                        isAnimating = false
+                    }
+                    override fun onAnimationRepeat(animation: Animation?) {}
+                })
+                addIcon.startAnimation(growAnimation)
+            }
+            override fun onAnimationRepeat(animation: Animation?) {}
+        })
+        addIcon.startAnimation(animation)
+    }
+
+    private fun showAddButton(targetSizePx: Int) {
+        Log.d("MainActivity", "Showing Add button")
+        val addIcon = binding.navIconAdd
+        if (!isAddButtonVisible) {
+            addIcon.visibility = View.VISIBLE
+            addIcon.setImageResource(R.drawable.ic_add_icon)
+            addIcon.contentDescription = getString(R.string.add_player)
+            isEditButtonMode = false
+            isAddButtonVisible = true
+            setIconSize(addIcon, targetSizePx)
+            Log.d("MainActivity", "Add icon size before grow: ${addIcon.layoutParams.width}x${addIcon.layoutParams.height}")
+            isAnimating = true
+            val growAnimation = AnimationUtils.loadAnimation(this, R.anim.grow_from_dot)
+            growAnimation.setAnimationListener(object : Animation.AnimationListener {
+                override fun onAnimationStart(animation: Animation?) {
+                    Log.d("MainActivity", "Grow animation started for Add button")
+                }
+                override fun onAnimationEnd(animation: Animation?) {
+                    Log.d("MainActivity", "Grow animation ended for Add button")
+                    setIconSize(addIcon, targetSizePx)
+                    Log.d("MainActivity", "Add icon size after grow: ${addIcon.layoutParams.width}x${addIcon.layoutParams.height}")
+                    isAnimating = false
+                }
+                override fun onAnimationRepeat(animation: Animation?) {}
+            })
+            addIcon.startAnimation(growAnimation)
+        }
+    }
+
+    private fun showEditButton(targetSizePx: Int) {
+        Log.d("MainActivity", "Showing Edit button")
+        val addIcon = binding.navIconAdd
+        if (!isAddButtonVisible) {
+            addIcon.visibility = View.VISIBLE
+            addIcon.setImageResource(R.drawable.button_edit)
+            addIcon.contentDescription = getString(R.string.edit_player)
+            isAddButtonVisible = true
+            isEditButtonMode = true
+            setIconSize(addIcon, targetSizePx)
+            Log.d("MainActivity", "Edit icon size before grow: ${addIcon.layoutParams.width}x${addIcon.layoutParams.height}")
+            isAnimating = true
+            val growAnimation = AnimationUtils.loadAnimation(this, R.anim.grow_from_dot)
+            growAnimation.setAnimationListener(object : Animation.AnimationListener {
+                override fun onAnimationStart(animation: Animation?) {
+                    Log.d("MainActivity", "Grow animation started for Edit button")
+                }
+                override fun onAnimationEnd(animation: Animation?) {
+                    Log.d("MainActivity", "Grow animation ended for Edit button")
+                    setIconSize(addIcon, targetSizePx)
+                    Log.d("MainActivity", "Edit icon size after grow: ${addIcon.layoutParams.width}x${addIcon.layoutParams.height}")
+                    isAnimating = false
+                }
+                override fun onAnimationRepeat(animation: Animation?) {}
+            })
+            addIcon.startAnimation(growAnimation)
+        }
+    }
+
+    private fun hideAddButton() {
+        Log.d("MainActivity", "Hiding Add button, isAddButtonVisible: $isAddButtonVisible, isHidingAddButton: $isHidingAddButton")
+        val addIcon = binding.navIconAdd
+        if (isAddButtonVisible && !isHidingAddButton) {
+            isHidingAddButton = true
+            isAnimating = true
+            addIcon.clearAnimation()
+            val animation = AnimationUtils.loadAnimation(this, R.anim.shrink_to_dot)
+            animation.setAnimationListener(object : Animation.AnimationListener {
+                override fun onAnimationStart(animation: Animation?) {
+                    Log.d("MainActivity", "Shrink animation started for Add button")
+                }
+                override fun onAnimationEnd(animation: Animation?) {
+                    Log.d("MainActivity", "Shrink animation ended for Add button")
+                    addIcon.visibility = View.GONE
+                    isAddButtonVisible = false
+                    isEditButtonMode = false
+                    isHidingAddButton = false
+                    isAnimating = false
+                }
+                override fun onAnimationRepeat(animation: Animation?) {}
+            })
+            addIcon.startAnimation(animation)
+        }
+    }
+
+    private fun hideNavBarIcons() {
+        Log.d("MainActivity", "Hiding NavBar icons")
+        if (!areNavIconsVisible) return
+
+        val icons = listOf(binding.navIconGames, binding.navIconPlayers, binding.navIconStatistics, binding.navIconSettings)
+        isAnimating = true
+        var completedAnimations = 0
+
+        for (icon in icons) {
+            if (icon.visibility == View.VISIBLE) {
+                icon.clearAnimation()
+                val animation = AnimationUtils.loadAnimation(this, R.anim.shrink_to_dot)
+                animation.setAnimationListener(object : Animation.AnimationListener {
+                    override fun onAnimationStart(animation: Animation?) {
+                        Log.d("MainActivity", "Shrink animation started for icon: $icon")
+                    }
+                    override fun onAnimationEnd(animation: Animation?) {
+                        Log.d("MainActivity", "Shrink animation ended for icon: $icon")
+                        icon.visibility = View.GONE
+                        setIconSize(icon, 0)
+                        completedAnimations++
+                        if (completedAnimations == icons.size) {
+                            areNavIconsVisible = false
+                            isAnimating = false
+                        }
+                    }
+                    override fun onAnimationRepeat(animation: Animation?) {}
+                })
+                icon.startAnimation(animation)
+            } else {
+                completedAnimations++
+                if (completedAnimations == icons.size) {
+                    areNavIconsVisible = false
+                    isAnimating = false
+                }
+            }
+        }
+    }
+
+    private fun showNavBarIcons(targetSizePx: Int) {
+        Log.d("MainActivity", "Showing NavBar icons")
+        if (areNavIconsVisible) return
+
+        val icons = listOf(binding.navIconGames, binding.navIconPlayers, binding.navIconStatistics, binding.navIconSettings)
+        isAnimating = true
+        var completedAnimations = 0
+
+        for (icon in icons) {
+            val targetSize = if (icon == lastSelectedIcon) {
+                val selectedSizePx = (72 * resources.displayMetrics.density).toInt()
+                selectedSizePx
+            } else {
+                targetSizePx
+            }
+
+            if (icon.visibility != View.VISIBLE || icon.layoutParams.width != targetSize) {
+                icon.visibility = View.VISIBLE
+                setIconSize(icon, 0) // Начинаем с 0 для анимации
+                val growAnimation = AnimationUtils.loadAnimation(this, R.anim.grow_from_dot)
+                growAnimation.setAnimationListener(object : Animation.AnimationListener {
+                    override fun onAnimationStart(animation: Animation?) {
+                        Log.d("MainActivity", "Grow animation started for icon: $icon")
+                    }
+                    override fun onAnimationEnd(animation: Animation?) {
+                        Log.d("MainActivity", "Grow animation ended for icon: $icon")
+                        setIconSize(icon, targetSize)
+                        completedAnimations++
+                        if (completedAnimations == icons.size) {
+                            areNavIconsVisible = true
+                            isAnimating = false
+                        }
+                    }
+                    override fun onAnimationRepeat(animation: Animation?) {}
+                })
+                icon.startAnimation(growAnimation)
+            } else {
+                completedAnimations++
+                if (completedAnimations == icons.size) {
+                    areNavIconsVisible = true
+                    isAnimating = false
+                }
+            }
+        }
     }
 
     private fun setupBackPressedHandler(navController: NavController) {

@@ -22,91 +22,64 @@
             app:layout_constraintEnd_toEndOf="parent"
             android:layout_marginTop="16dp" />
 
-        <!-- Спиннер для выбора темы -->
-        <TextView
-            android:id="@+id/theme_label"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/theme"
-            android:textSize="18sp"
-            app:layout_constraintTop_toBottomOf="@id/settings_title"
-            app:layout_constraintStart_toStartOf="parent"
-            android:layout_marginTop="24dp"
-            android:layout_marginStart="16dp" />
-
-        <Spinner
-            android:id="@+id/theme_spinner"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            app:layout_constraintTop_toBottomOf="@id/theme_label"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            android:layout_marginStart="16dp"
-            android:layout_marginEnd="16dp"
-            android:layout_marginTop="8dp" />
-
-        <!-- Переключатель для фона -->
-        <TextView
-            android:id="@+id/background_label"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/background"
-            android:textSize="18sp"
-            app:layout_constraintTop_toBottomOf="@id/theme_spinner"
-            app:layout_constraintStart_toStartOf="parent"
-            android:layout_marginTop="24dp"
-            android:layout_marginStart="16dp" />
-
-        <Switch
-            android:id="@+id/background_switch"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:textOff="@string/background_disabled"
-            android:textOn="@string/background_enabled"
-            app:layout_constraintTop_toBottomOf="@id/background_label"
-            app:layout_constraintStart_toStartOf="parent"
-            android:layout_marginTop="8dp"
-            android:layout_marginStart="16dp" />
-
-        <!-- Кнопка/текст для Google аккаунта -->
+        <!-- Theme и спиннер в одной строке -->
         <LinearLayout
-            android:id="@+id/google_account_layout"
+            android:id="@+id/theme_layout"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            app:layout_constraintBottom_toBottomOf="parent"
+            android:gravity="center_vertical"
+            app:layout_constraintTop_toBottomOf="@id/settings_title"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
-            android:layout_marginBottom="16dp"
+            android:layout_marginTop="24dp"
             android:layout_marginStart="16dp"
             android:layout_marginEnd="16dp">
 
             <TextView
-                android:id="@+id/google_account_text"
+                android:id="@+id/theme_label"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="@string/sign_in_google"
-                android:textSize="18sp"
-                android:layout_gravity="center_vertical"
-                android:clickable="true"
-                android:padding="8dp" />
+                android:text="@string/theme"
+                android:textSize="18sp" />
 
-            <ImageView
-                android:id="@+id/google_avatar"
-                android:layout_width="24dp"
-                android:layout_height="24dp"
-                android:contentDescription="@string/google_avatar_desc"
-                android:layout_gravity="center_vertical"
-                android:visibility="gone" />
+            <Spinner
+                android:id="@+id/theme_spinner"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="8dp" />
+        </LinearLayout>
+
+        <!-- Background и переключатель в одной строке -->
+        <LinearLayout
+            android:id="@+id/background_layout"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            app:layout_constraintTop_toBottomOf="@id/theme_layout"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            android:layout_marginTop="16dp"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="16dp">
 
             <TextView
-                android:id="@+id/google_account_name"
+                android:id="@+id/background_label"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/background"
+                android:textSize="18sp" />
+
+            <Switch
+                android:id="@+id/background_switch"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text=""
-                android:textSize="18sp"
-                android:layout_gravity="center_vertical"
-                android:visibility="gone" />
+                android:textOff="@string/background_disabled"
+                android:textOn="@string/background_enabled"
+                android:layout_marginStart="8dp" />
         </LinearLayout>
 
         <!-- Пункты для сохранения/загрузки данных -->
@@ -116,7 +89,7 @@
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:visibility="gone"
-            app:layout_constraintTop_toBottomOf="@id/background_switch"
+            app:layout_constraintTop_toBottomOf="@id/background_layout"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             android:layout_marginTop="24dp"
@@ -137,12 +110,88 @@
                 android:text="@string/load_data"
                 android:layout_marginBottom="8dp" />
 
-            <Switch
-                android:id="@+id/local_save_switch"
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="@string/save_locally" />
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/save_locally"
+                    android:textSize="18sp" />
+
+                <Switch
+                    android:id="@+id/local_save_switch"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp" />
+            </LinearLayout>
         </LinearLayout>
+
+        <!-- Google аккаунт (иконка, имя, кнопка выхода) -->
+        <LinearLayout
+            android:id="@+id/google_account_layout"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
+            app:layout_constraintBottom_toTopOf="@id/navigation_bar_spacer"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            android:layout_marginBottom="16dp"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="16dp">
+
+            <ImageView
+                android:id="@+id/google_avatar"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:contentDescription="@string/google_avatar_desc"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/google_account_name"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text=""
+                android:textSize="18sp"
+                android:layout_marginStart="8dp"
+                android:visibility="gone" />
+
+            <ImageButton
+                android:id="@+id/google_sign_out_button"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:src="@drawable/button_cancel"
+                android:scaleType="fitCenter"
+                android:background="@android:color/transparent"
+                android:contentDescription="@string/sign_out"
+                android:layout_marginStart="16dp"
+                android:visibility="gone" />
+        </LinearLayout>
+
+        <!-- Кнопка Sign in with Google -->
+        <Button
+            android:id="@+id/google_account_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/sign_in_google"
+            android:textSize="18sp"
+            android:padding="8dp"
+            app:layout_constraintBottom_toTopOf="@id/navigation_bar_spacer"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            android:layout_marginBottom="16dp" />
+
+        <!-- Spacer для отступа от NavBar -->
+        <Space
+            android:id="@+id/navigation_bar_spacer"
+            android:layout_width="match_parent"
+            android:layout_height="32dp"
+            app:layout_constraintBottom_toBottomOf="parent" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 </layout>

@@ -42,12 +42,15 @@
                 android:focusable="true"
                 android:focusableInTouchMode="true" />
 
-            <Button
+            <ImageButton
                 android:id="@+id/removeButton"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:src="@drawable/button_cancel"
+                android:scaleType="fitCenter"
+                android:background="@android:color/transparent"
                 android:layout_weight="0.3"
-                android:text="@string/remove_player" />
+                android:contentDescription="@string/remove_player" />
         </LinearLayout>
     </LinearLayout>
 </layout>
