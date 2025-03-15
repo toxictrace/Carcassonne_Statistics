@@ -10,10 +10,18 @@
         android:label="@string/games_title">
         <action
             android:id="@+id/action_gamesFragment_to_viewGameFragment"
-            app:destination="@id/viewGameFragment" />
+            app:destination="@id/viewGameFragment"
+            app:enterAnim="@anim/fade_in"
+            app:exitAnim="@anim/fade_out"
+            app:popEnterAnim="@anim/fade_in"
+            app:popExitAnim="@anim/fade_out" />
         <action
             android:id="@+id/action_gamesFragment_to_editGameFragment"
-            app:destination="@id/editGameFragment" />
+            app:destination="@id/editGameFragment"
+            app:enterAnim="@anim/fade_in"
+            app:exitAnim="@anim/fade_out"
+            app:popEnterAnim="@anim/fade_in"
+            app:popExitAnim="@anim/fade_out" />
     </fragment>
     <fragment
         android:id="@+id/playersFragment"
@@ -21,10 +29,18 @@
         android:label="@string/players_title">
         <action
             android:id="@+id/action_playersFragment_to_playerProfileFragment"
-            app:destination="@id/playerProfileFragment" />
+            app:destination="@id/playerProfileFragment"
+            app:enterAnim="@anim/fade_in"
+            app:exitAnim="@anim/fade_out"
+            app:popEnterAnim="@anim/fade_in"
+            app:popExitAnim="@anim/fade_out" />
         <action
             android:id="@+id/action_playersFragment_to_editPlayerFragment"
-            app:destination="@id/editPlayerFragment" />
+            app:destination="@id/editPlayerFragment"
+            app:enterAnim="@anim/fade_in"
+            app:exitAnim="@anim/fade_out"
+            app:popEnterAnim="@anim/fade_in"
+            app:popExitAnim="@anim/fade_out" />
     </fragment>
     <fragment
         android:id="@+id/statisticsFragment"
@@ -38,7 +54,11 @@
             android:id="@+id/action_settingsFragment_to_gamesFragment"
             app:destination="@id/gamesFragment"
             app:popUpTo="@id/gamesFragment"
-            app:popUpToInclusive="true" />
+            app:popUpToInclusive="true"
+            app:enterAnim="@anim/fade_in"
+            app:exitAnim="@anim/fade_out"
+            app:popEnterAnim="@anim/fade_in"
+            app:popExitAnim="@anim/fade_out" />
     </fragment>
     <fragment
         android:id="@+id/editGameFragment"
@@ -61,7 +81,11 @@
             app:argType="integer" />
         <action
             android:id="@+id/action_playerProfileFragment_to_editPlayerFragment"
-            app:destination="@id/editPlayerFragment" />
+            app:destination="@id/editPlayerFragment"
+            app:enterAnim="@anim/fade_in"
+            app:exitAnim="@anim/fade_out"
+            app:popEnterAnim="@anim/fade_in"
+            app:popExitAnim="@anim/fade_out" />
     </fragment>
     <fragment
         android:id="@+id/viewGameFragment"
@@ -72,6 +96,10 @@
             app:argType="integer" />
         <action
             android:id="@+id/action_viewGameFragment_to_editGameFragment"
-            app:destination="@id/editGameFragment" />
+            app:destination="@id/editGameFragment"
+            app:enterAnim="@anim/fade_in"
+            app:exitAnim="@anim/fade_out"
+            app:popEnterAnim="@anim/fade_in"
+            app:popExitAnim="@anim/fade_out" />
     </fragment>
 </navigation>

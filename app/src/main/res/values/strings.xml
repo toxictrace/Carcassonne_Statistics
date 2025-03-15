@@ -101,4 +101,22 @@
     <string name="data_loaded_locally_success">Data loaded locally successfully</string>
     <string name="data_load_locally_failed">Failed to load data locally</string>
     <string name="no_local_data_file_found">No local data file found</string>
+    <string name="global_statistics">Global Statistics</string>
+    <string name="compare_players">Compare Players</string>
+    <string name="select_player">Select Player</string>
+    <string name="compare_button">Compare</string>
+    <string name="total_games_stat">Total Games: %d</string>
+    <string name="avg_score_stat">Average Score: %d</string>
+    <string name="max_score_stat">Max Score: %d</string>
+    <string name="min_score_stat">Min Score: %d</string>
+    <string name="top_players_stat">Top Players:\n%s</string>
+    <string name="wins_label">Wins</string>
+    <string name="wins_comparison">Wins Comparison</string>
+    <string name="wins_distribution">Wins Distribution</string>
+    <string name="score_trend">Score Trend (Last 10 Games)</string>
+    <string name="no_players_selected">Please select at least one player to compare</string>
+    <string name="player_comparison_stats">Wins: %1$d, Avg Score: %2$.1f, Total Games: %3$d</string>
+    <string name="wins_header">Wins</string>
+    <string name="avg_score_header">Avg Score</string>
+    <string name="total_games_header">Total Games</string>
 </resources>

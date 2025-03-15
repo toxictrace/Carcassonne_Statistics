@@ -21,6 +21,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavController
+import androidx.navigation.NavOptions
 import androidx.navigation.fragment.NavHostFragment
 import by.toxic.carstat.databinding.ActivityMainBinding
 import com.bumptech.glide.Glide
@@ -48,6 +49,7 @@ class MainActivity : AppCompatActivity() {
     private var isHidingAddButton = false
     private var isAnimating = false
     private var areNavIconsVisible = true
+    private var currentBackgroundId: Int? = null // Кэшируем ID текущего фона
     lateinit var googleSignInClient: GoogleSignInClient
     private val RC_SIGN_IN = 9001
 
@@ -85,7 +87,7 @@ class MainActivity : AppCompatActivity() {
         val isDarkTheme = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
         Log.d("MainActivity", "Current theme: ${if (isDarkTheme) "Dark" else "Light"}")
 
-        setRandomBackground(isDarkTheme, isCustomBackgroundsEnabled)
+        setRandomBackground(isDarkTheme, isCustomBackgroundsEnabled) // Устанавливаем фон при запуске
 
         val normalSizeDp = 48
         val density = resources.displayMetrics.density
@@ -113,7 +115,6 @@ class MainActivity : AppCompatActivity() {
                             else -> false
                         }
                         Log.d("MainActivity", "Editing mode: $isEditing, Destination: ${destination.label}")
-                        setRandomBackground(isDarkTheme, isCustomBackgroundsEnabled)
                         if (!isAnimating) updateNavBarIconAndAnimation(destination.id)
                     }
                     setupNavBarClicks(navCtrl)
@@ -162,6 +163,7 @@ class MainActivity : AppCompatActivity() {
             binding.backgroundImage.setImageDrawable(null)
             val backgroundColor = ContextCompat.getColor(this, R.color.background)
             binding.root.setBackgroundColor(backgroundColor)
+            currentBackgroundId = null
             return
         }
 
@@ -183,11 +185,8 @@ class MainActivity : AppCompatActivity() {
             R.drawable.dark_background6
         )
 
-        val selectedBackground = if (isDarkTheme) {
-            darkBackgrounds[Random.nextInt(darkBackgrounds.size)]
-        } else {
-            lightBackgrounds[Random.nextInt(lightBackgrounds.size)]
-        }
+        val backgrounds = if (isDarkTheme) darkBackgrounds else lightBackgrounds
+        val selectedBackground = currentBackgroundId ?: backgrounds[Random.nextInt(backgrounds.size)].also { currentBackgroundId = it }
 
         try {
             val options = RequestOptions()
@@ -204,6 +203,7 @@ class MainActivity : AppCompatActivity() {
             Log.e("MainActivity", "Failed to load background: ${e.message}")
             binding.backgroundImage.setImageDrawable(null)
             binding.root.setBackgroundColor(ContextCompat.getColor(this, R.color.background))
+            currentBackgroundId = null
         }
     }
 
@@ -230,13 +230,23 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupNavBarClicks(navController: NavController) {
+        val navOptions = NavOptions.Builder()
+            .setEnterAnim(R.anim.fade_in)
+            .setExitAnim(R.anim.fade_out)
+            .setPopEnterAnim(R.anim.fade_in)
+            .setPopExitAnim(R.anim.fade_out)
+            .build()
+
+        val isDarkTheme = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
+
         binding.navItemGames.setOnClickListener {
             val isNavigationBlocked = navController.currentDestination?.id == R.id.playerProfileFragment ||
                     navController.currentDestination?.id == R.id.viewGameFragment
             if (isNavigationBlocked) {
                 Log.d("MainActivity", "Navigation blocked: on PlayerProfileFragment or ViewGameFragment")
             } else if (!isEditing) {
-                navController.navigate(R.id.gamesFragment)
+                setRandomBackground(isDarkTheme, isCustomBackgroundsEnabled) // Устанавливаем фон перед переходом
+                navController.navigate(R.id.gamesFragment, null, navOptions)
             } else {
                 Log.d("MainActivity", "Navigation blocked due to editing mode")
             }
@@ -248,7 +258,8 @@ class MainActivity : AppCompatActivity() {
             if (isNavigationBlocked) {
                 Log.d("MainActivity", "Navigation blocked: on PlayerProfileFragment or ViewGameFragment")
             } else if (!isEditing) {
-                navController.navigate(R.id.playersFragment)
+                setRandomBackground(isDarkTheme, isCustomBackgroundsEnabled) // Устанавливаем фон перед переходом
+                navController.navigate(R.id.playersFragment, null, navOptions)
             } else {
                 Log.d("MainActivity", "Navigation blocked due to editing mode")
             }
@@ -320,7 +331,8 @@ class MainActivity : AppCompatActivity() {
             if (isNavigationBlocked) {
                 Log.d("MainActivity", "Navigation blocked: on PlayerProfileFragment or ViewGameFragment")
             } else if (!isEditing) {
-                navController.navigate(R.id.statisticsFragment)
+                setRandomBackground(isDarkTheme, isCustomBackgroundsEnabled) // Устанавливаем фон перед переходом
+                navController.navigate(R.id.statisticsFragment, null, navOptions)
             } else {
                 Log.d("MainActivity", "Navigation blocked due to editing mode")
             }
@@ -332,7 +344,8 @@ class MainActivity : AppCompatActivity() {
             if (isNavigationBlocked) {
                 Log.d("MainActivity", "Navigation blocked: on PlayerProfileFragment or ViewGameFragment")
             } else if (!isEditing) {
-                navController.navigate(R.id.settingsFragment)
+                setRandomBackground(isDarkTheme, isCustomBackgroundsEnabled) // Устанавливаем фон перед переходом
+                navController.navigate(R.id.settingsFragment, null, navOptions)
             } else {
                 Log.d("MainActivity", "Navigation blocked due to editing mode")
             }
@@ -366,7 +379,6 @@ class MainActivity : AppCompatActivity() {
             Log.d("MainActivity", "Set Add button size to normal: $normalSizePx")
         }
 
-        // Устанавливаем увеличение иконок в зависимости от текущего экрана
         when (destinationId) {
             R.id.gamesFragment, R.id.viewGameFragment, R.id.editGameFragment -> {
                 if (previousIcon != null && previousIcon != binding.navIconGames && previousIcon != binding.navIconAdd) {
@@ -426,7 +438,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Управление видимостью кнопок
         when (destinationId) {
             R.id.gamesFragment, R.id.playersFragment -> {
                 Log.d("MainActivity", "Showing all icons and Add button for destination: $destinationId")
@@ -438,18 +449,17 @@ class MainActivity : AppCompatActivity() {
                 } else if (isEditButtonMode) {
                     animateReplaceEditWithAdd(normalSizePx)
                 }
-                // Принудительное увеличение активной иконки после показа с замедленной анимацией
                 when (destinationId) {
                     R.id.gamesFragment -> {
                         if (binding.navIconGames.layoutParams.width != selectedSizePx) {
                             Log.d("MainActivity", "Forcing grow for Games icon after show with slow animation")
-                            animateIconSize(binding.navIconGames, selectedSizePx, 600) // Замедляем до 600 мс
+                            animateIconSize(binding.navIconGames, selectedSizePx, 600)
                         }
                     }
                     R.id.playersFragment -> {
                         if (binding.navIconPlayers.layoutParams.width != selectedSizePx) {
                             Log.d("MainActivity", "Forcing grow for Players icon after show with slow animation")
-                            animateIconSize(binding.navIconPlayers, selectedSizePx, 600) // Замедляем до 600 мс
+                            animateIconSize(binding.navIconPlayers, selectedSizePx, 600)
                         }
                     }
                 }
@@ -511,7 +521,7 @@ class MainActivity : AppCompatActivity() {
 
         isAnimating = true
         val animator = ValueAnimator.ofInt(currentSizePx, targetSizePx)
-        animator.duration = duration // Используем переданную длительность
+        animator.duration = duration
         animator.interpolator = AccelerateDecelerateInterpolator()
         animator.addUpdateListener { animation ->
             val value = animation.animatedValue as Int
@@ -540,6 +550,7 @@ class MainActivity : AppCompatActivity() {
         })
         animator.start()
     }
+
     private fun animateReplaceAddWithEdit(targetSizePx: Int) {
         Log.d("MainActivity", "Animating replace Add with Edit")
         val addIcon = binding.navIconAdd
@@ -761,7 +772,7 @@ class MainActivity : AppCompatActivity() {
 
             if (icon.visibility != View.VISIBLE || icon.layoutParams.width != targetSize) {
                 icon.visibility = View.VISIBLE
-                setIconSize(icon, 0) // Начинаем с 0 для анимации
+                setIconSize(icon, 0)
                 val growAnimation = AnimationUtils.loadAnimation(this, R.anim.grow_from_dot)
                 growAnimation.setAnimationListener(object : Animation.AnimationListener {
                     override fun onAnimationStart(animation: Animation?) {
