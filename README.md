@@ -14,7 +14,7 @@ An Android application for tracking game sessions and analyzing statistics for t
 - 📈 Interactive charts and graphs for performance analysis
 - 🏆 Achievement system for special in-game accomplishments
 - 🔍 Filter and search through previous game sessions
-- 📤 Export/import data in CSV format
+- 📤 Export/import data in JSON format
 - 🌙 Dark/Light theme support
 
 ## Installation
