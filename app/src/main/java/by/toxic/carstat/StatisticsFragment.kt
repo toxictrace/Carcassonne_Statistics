@@ -7,7 +7,6 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
-import android.widget.TableLayout
 import android.widget.TableRow
 import android.widget.TextView
 import androidx.fragment.app.Fragment
@@ -21,7 +20,7 @@ import kotlinx.coroutines.launch
 class StatisticsFragment : Fragment() {
 
     private var _binding: FragmentStatisticsBinding? = null
-    private val binding get() = _binding!!
+    private val binding get() = _binding ?: throw IllegalStateException("Binding is null")
     private val viewModel: GameViewModel by activityViewModels()
     private var players = listOf<Player>()
     private var games = listOf<GameWithPlayers>()
@@ -114,46 +113,54 @@ class StatisticsFragment : Fragment() {
     }
 
     private fun observeData() {
-        lifecycleScope.launch {
+        viewLifecycleOwner.lifecycleScope.launch {
             viewModel.allPlayers.collect { playerList ->
                 players = playerList
                 updateSpinners()
-                updateGlobalStats()
+                if (view != null) { // Проверяем, активно ли представление
+                    updateGlobalStats()
+                }
             }
         }
 
-        lifecycleScope.launch {
+        viewLifecycleOwner.lifecycleScope.launch {
             viewModel.allGames.collect { gameList ->
                 games = gameList
-                updateGlobalStats()
+                if (view != null) { // Проверяем, активно ли представление
+                    updateGlobalStats()
+                }
             }
         }
     }
 
     private fun updateGlobalStats() {
-        val totalGames = games.size
-        val allScores = games.flatMap { it.gamePlayers.map { player -> player.score } }
-        val avgScore = if (allScores.isNotEmpty()) allScores.average().toInt() else 0
-        val maxScore = allScores.maxOrNull() ?: 0
-        val minScore = allScores.minOrNull() ?: 0
+        _binding?.let { binding -> // Безопасный доступ к binding
+            val totalGames = games.size
+            val allScores = games.flatMap { it.gamePlayers.map { player -> player.score } }
+            val avgScore = if (allScores.isNotEmpty()) allScores.average().toInt() else 0
+            val maxScore = allScores.maxOrNull() ?: 0
+            val minScore = allScores.minOrNull() ?: 0
 
-        val playerWins = mutableMapOf<Int, Int>()
-        games.forEach { game ->
-            val winner = game.gamePlayers.maxByOrNull { it.score }
-            winner?.playerId?.let { playerWins[it] = playerWins.getOrDefault(it, 0) + 1 }
-        }
-        val topPlayers = playerWins.entries.sortedByDescending { it.value }
-            .take(3)
-            .joinToString("\n") { entry ->
-                val player = players.find { it.id == entry.key }
-                "${player?.name ?: "Unknown (ID: ${entry.key})"}: ${entry.value}"
+            val playerWins = mutableMapOf<Int, Int>()
+            games.forEach { game ->
+                val winner = game.gamePlayers.maxByOrNull { it.score }
+                winner?.playerId?.let { playerWins[it] = playerWins.getOrDefault(it, 0) + 1 }
             }
+            val topPlayers = playerWins.entries.sortedByDescending { it.value }
+                .take(3)
+                .joinToString("\n") { entry ->
+                    val player = players.find { it.id == entry.key }
+                    "${player?.name ?: "Unknown (ID: ${entry.key})"}: ${entry.value}"
+                }
 
-        binding.totalGames.text = getString(R.string.total_games_stat, totalGames)
-        binding.avgScore.text = getString(R.string.avg_score_stat, avgScore)
-        binding.maxScore.text = getString(R.string.max_score_stat, maxScore)
-        binding.minScore.text = getString(R.string.min_score_stat, minScore)
-        binding.topPlayers.text = getString(R.string.top_players_stat, topPlayers)
+            binding.totalGames.text = getString(R.string.total_games_stat, totalGames)
+            binding.avgScore.text = getString(R.string.avg_score_stat, avgScore)
+            binding.maxScore.text = getString(R.string.max_score_stat, maxScore)
+            binding.minScore.text = getString(R.string.min_score_stat, minScore)
+            binding.topPlayers.text = getString(R.string.top_players_stat, topPlayers)
+        } ?: run {
+            android.util.Log.w("StatisticsFragment", "Cannot update stats: binding is null")
+        }
     }
 
     private fun setupCompareButton() {
@@ -168,80 +175,82 @@ class StatisticsFragment : Fragment() {
     }
 
     private fun updateComparisonTable(selectedPlayers: List<Player>) {
-        val playerStats = selectedPlayers.map { player ->
-            val playerGames = games.filter { game -> game.gamePlayers.any { it.playerId == player.id } }
-            val wins = playerGames.count { game -> game.gamePlayers.maxByOrNull { it.score }?.playerId == player.id }
-            val scores = playerGames.flatMap { it.gamePlayers.filter { it.playerId == player.id }.map { it.score } }
-            val avgScore = if (scores.isNotEmpty()) scores.average().toFloat() else 0f
-            val totalGames = playerGames.size
-            PlayerStats(player.name, wins, avgScore, totalGames)
-        }
-
-        binding.comparisonTable.removeAllViews()
-
-        val headerRow = TableRow(context).apply {
-            addView(TextView(context).apply { text = "" })
-            playerStats.forEach { stats ->
-                addView(TextView(context).apply {
-                    text = stats.name
-                    setPadding(8, 8, 8, 8)
-                    textSize = 16f
-                    setTextColor(Color.BLACK)
-                })
+        _binding?.let { binding -> // Безопасный доступ к binding
+            val playerStats = selectedPlayers.map { player ->
+                val playerGames = games.filter { game -> game.gamePlayers.any { it.playerId == player.id } }
+                val wins = playerGames.count { game -> game.gamePlayers.maxByOrNull { it.score }?.playerId == player.id }
+                val scores = playerGames.flatMap { it.gamePlayers.filter { it.playerId == player.id }.map { it.score } }
+                val avgScore = if (scores.isNotEmpty()) scores.average().toFloat() else 0f
+                val totalGames = playerGames.size
+                PlayerStats(player.name, wins, avgScore, totalGames)
             }
-        }
-        binding.comparisonTable.addView(headerRow)
 
-        val winsRow = TableRow(context).apply {
-            addView(TextView(context).apply {
-                text = getString(R.string.wins_header)
-                setPadding(8, 8, 8, 8)
-                textSize = 14f
-            })
-            playerStats.forEach { stats ->
+            binding.comparisonTable.removeAllViews()
+
+            val headerRow = TableRow(context).apply {
+                addView(TextView(context).apply { text = "" })
+                playerStats.forEach { stats ->
+                    addView(TextView(context).apply {
+                        text = stats.name
+                        setPadding(8, 8, 8, 8)
+                        textSize = 16f
+                        setTextColor(Color.BLACK)
+                    })
+                }
+            }
+            binding.comparisonTable.addView(headerRow)
+
+            val winsRow = TableRow(context).apply {
                 addView(TextView(context).apply {
-                    text = stats.wins.toString()
+                    text = getString(R.string.wins_header)
                     setPadding(8, 8, 8, 8)
                     textSize = 14f
-                    setTextColor(getColorForValue(stats.wins, playerStats.map { it.wins }))
                 })
+                playerStats.forEach { stats ->
+                    addView(TextView(context).apply {
+                        text = stats.wins.toString()
+                        setPadding(8, 8, 8, 8)
+                        textSize = 14f
+                        setTextColor(getColorForValue(stats.wins, playerStats.map { it.wins }))
+                    })
+                }
             }
-        }
-        binding.comparisonTable.addView(winsRow)
+            binding.comparisonTable.addView(winsRow)
 
-        val avgScoreRow = TableRow(context).apply {
-            addView(TextView(context).apply {
-                text = getString(R.string.avg_score_header)
-                setPadding(8, 8, 8, 8)
-                textSize = 14f
-            })
-            playerStats.forEach { stats ->
+            val avgScoreRow = TableRow(context).apply {
                 addView(TextView(context).apply {
-                    text = String.format("%.1f", stats.avgScore)
+                    text = getString(R.string.avg_score_header)
                     setPadding(8, 8, 8, 8)
                     textSize = 14f
-                    setTextColor(getColorForValue(stats.avgScore, playerStats.map { it.avgScore }))
                 })
+                playerStats.forEach { stats ->
+                    addView(TextView(context).apply {
+                        text = String.format("%.1f", stats.avgScore)
+                        setPadding(8, 8, 8, 8)
+                        textSize = 14f
+                        setTextColor(getColorForValue(stats.avgScore, playerStats.map { it.avgScore }))
+                    })
+                }
             }
-        }
-        binding.comparisonTable.addView(avgScoreRow)
+            binding.comparisonTable.addView(avgScoreRow)
 
-        val totalGamesRow = TableRow(context).apply {
-            addView(TextView(context).apply {
-                text = getString(R.string.total_games_header)
-                setPadding(8, 8, 8, 8)
-                textSize = 14f
-            })
-            playerStats.forEach { stats ->
+            val totalGamesRow = TableRow(context).apply {
                 addView(TextView(context).apply {
-                    text = stats.totalGames.toString()
+                    text = getString(R.string.total_games_header)
                     setPadding(8, 8, 8, 8)
                     textSize = 14f
-                    setTextColor(getColorForValue(stats.totalGames, playerStats.map { it.totalGames }))
                 })
+                playerStats.forEach { stats ->
+                    addView(TextView(context).apply {
+                        text = stats.totalGames.toString()
+                        setPadding(8, 8, 8, 8)
+                        textSize = 14f
+                        setTextColor(getColorForValue(stats.totalGames, playerStats.map { it.totalGames }))
+                    })
+                }
             }
+            binding.comparisonTable.addView(totalGamesRow)
         }
-        binding.comparisonTable.addView(totalGamesRow)
     }
 
     private fun getColorForValue(value: Number, values: List<Number>): Int {

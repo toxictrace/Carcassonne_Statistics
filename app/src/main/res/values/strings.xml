@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Carcassonne Statistics</string>
     <string name="hello_message">Welcome to Carcassonne Statistics!</string>
@@ -92,7 +93,6 @@
     <string name="theme_light">Light</string>
     <string name="theme_dark">Dark</string>
     <string name="theme_follow_system">Follow System</string>
-    <!-- Новые строки -->
     <string name="save_locally">Save locally</string>
     <string name="saving_data_locally">Saving data locally</string>
     <string name="loading_data_locally">Loading data locally</string>
@@ -119,4 +119,10 @@
     <string name="wins_header">Wins</string>
     <string name="avg_score_header">Avg Score</string>
     <string name="total_games_header">Total Games</string>
+    <string name="storage_permission_title">Storage Permission Required</string>
+    <string name="storage_permission_message">This app needs access to storage to save and load game data locally. Please grant the permission.</string>
+    <string name="permission_denied_title">Permission Denied</string>
+    <string name="permission_denied_message">Storage permission is required to save and load data. Please enable it in settings.</string>
+    <string name="go_to_settings">Go to Settings</string>
+    <string name="ok">OK</string>
 </resources>

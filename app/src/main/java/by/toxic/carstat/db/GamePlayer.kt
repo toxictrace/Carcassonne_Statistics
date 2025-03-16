@@ -26,5 +26,5 @@ data class GamePlayer(
     var gameId: Int,
     var playerId: Int,
     var score: Int,
-    var color: String? = null // Новое поле для цвета
+    var color: String? = null
 )

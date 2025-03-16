@@ -11,9 +11,11 @@ import by.toxic.carstat.db.Game
 import by.toxic.carstat.db.GamePlayer
 import by.toxic.carstat.db.GameWithPlayers
 import by.toxic.carstat.db.Player
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -36,8 +38,12 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 val formattedDate = formatDateForStorage(date)
                 Log.d("GameViewModel", "Adding game with date: $formattedDate")
-                val gameId = db.gameDao().insertGame(Game(date = formattedDate))
-                val players = playerNames.map { Player(name = it) }
+                val maxGameId = db.gameDao().getMaxGameId() ?: 0
+                val gameId = db.gameDao().insertGame(Game(id = maxGameId + 1, date = formattedDate))
+                val maxPlayerId = db.playerDao().getMaxPlayerId() ?: 0
+                val players = playerNames.mapIndexed { index: Int, name: String ->
+                    Player(id = maxPlayerId + index + 1, name = name)
+                }
                 val playerIds = db.playerDao().insertPlayers(players)
                 val gamePlayers = playerIds.mapIndexed { index, playerId ->
                     GamePlayer(gameId.toInt(), playerId.toInt(), 0)
@@ -52,7 +58,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     suspend fun doesPlayerExist(name: String): Boolean {
         return try {
-            db.playerDao().getAllPlayers().first().any { it.name == name } // Изменено с equals(name, ignoreCase = true) на ==
+            db.playerDao().getAllPlayers().first().any { it.name == name }
         } catch (e: Exception) {
             Log.e("GameViewModel", "Error checking player existence: ${e.message}", e)
             false
@@ -67,7 +73,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 onError(context.getString(R.string.player_exists_error, name))
             } else {
                 try {
-                    db.playerDao().insertPlayer(Player(name = name, frameId = frameId))
+                    val maxPlayerId = db.playerDao().getMaxPlayerId() ?: 0
+                    db.playerDao().insertPlayer(Player(id = maxPlayerId + 1, name = name, frameId = frameId))
                     Log.d("GameViewModel", "Player '$name' with frameId '$frameId' added successfully")
                     onSuccess()
                 } catch (e: Exception) {
@@ -120,7 +127,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     db.gameDao().insertGamePlayers(gamePlayers)
                     Log.d("GameViewModel", "Game updated successfully with ID: $gameId")
                 } else {
-                    val newGameId = db.gameDao().insertGame(Game(date = formattedDate))
+                    val maxGameId = db.gameDao().getMaxGameId() ?: 0
+                    val newGameId = db.gameDao().insertGame(Game(id = maxGameId + 1, date = formattedDate))
                     val gamePlayers = players.map { (playerId, score, color) ->
                         GamePlayer(newGameId.toInt(), playerId, score, color)
                     }
@@ -209,23 +217,49 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     suspend fun deleteAllData() {
-        db.playerDao().getAllPlayers().first().forEach { player ->
-            db.playerDao().deletePlayer(player.id)
-        }
-        db.gameDao().getAllGamesWithPlayers().first().forEach { game ->
-            db.gameDao().deleteGame(game.game.id)
+        withContext(Dispatchers.IO) {
+            db.playerDao().getAllPlayers().first().forEach { player ->
+                db.playerDao().deletePlayer(player.id)
+            }
+            db.gameDao().getAllGamesWithPlayers().first().forEach { game ->
+                db.gameDao().deleteGame(game.game.id)
+            }
         }
     }
 
     suspend fun insertData(players: List<Player>, games: List<Game>, gamePlayers: List<GamePlayer>) {
-        db.clearAllTables() // Очистка всех таблиц
-        db.playerDao().insertPlayers(players)
-        games.forEach { game ->
-            val gameId = db.gameDao().insertGame(game)
-            val updatedGamePlayers = gamePlayers.filter { it.gameId == game.id }.map {
-                it.copy(gameId = gameId.toInt())
+        withContext(Dispatchers.IO) {
+            Log.d("GameViewModel", "Starting data insertion. Players: ${players.size}, Games: ${games.size}, GamePlayers: ${gamePlayers.size}")
+
+            val initialPlayers = db.playerDao().getAllPlayers().first()
+            val initialGames = db.gameDao().getAllGamesWithPlayers().first()
+            Log.d("GameViewModel", "Before cleanup - Players in DB: ${initialPlayers.size}, Games in DB: ${initialGames.size}")
+
+            db.gameDao().deleteAllGamePlayers()
+            db.gameDao().deleteAllGames()
+            db.playerDao().deleteAllPlayers()
+
+            val afterCleanupPlayers = db.playerDao().getAllPlayers().first()
+            val afterCleanupGames = db.gameDao().getAllGamesWithPlayers().first()
+            Log.d("GameViewModel", "After cleanup - Players in DB: ${afterCleanupPlayers.size}, Games in DB: ${afterCleanupGames.size}")
+
+            if (afterCleanupPlayers.isNotEmpty() || afterCleanupGames.isNotEmpty()) {
+                Log.e("GameViewModel", "Cleanup failed. Players: ${afterCleanupPlayers.size}, Games: ${afterCleanupGames.size}")
+                throw IllegalStateException("Failed to clear database before insertion")
             }
-            db.gameDao().insertGamePlayers(updatedGamePlayers)
+
+            db.playerDao().insertPlayers(players)
+            Log.d("GameViewModel", "Inserted ${players.size} players")
+
+            db.gameDao().insertGames(games)
+            Log.d("GameViewModel", "Inserted ${games.size} games")
+
+            db.gameDao().insertGamePlayers(gamePlayers)
+            Log.d("GameViewModel", "Inserted ${gamePlayers.size} game players")
+
+            val finalPlayers = db.playerDao().getAllPlayers().first()
+            val finalGames = db.gameDao().getAllGamesWithPlayers().first()
+            Log.d("GameViewModel", "After insertion - Players in DB: ${finalPlayers.size}, Games in DB: ${finalGames.size}")
         }
     }
 }

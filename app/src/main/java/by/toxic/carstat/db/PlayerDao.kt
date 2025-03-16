@@ -2,6 +2,7 @@ package by.toxic.carstat.db
 
 import androidx.room.Dao
 import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
@@ -11,13 +12,10 @@ interface PlayerDao {
     @Query("SELECT * FROM players")
     fun getAllPlayers(): Flow<List<Player>>
 
-    @Query("SELECT * FROM players")
-    suspend fun getAllPlayersList(): List<Player>
-
-    @Insert
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertPlayer(player: Player): Long
 
-    @Insert
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertPlayers(players: List<Player>): List<Long>
 
     @Update
@@ -25,4 +23,10 @@ interface PlayerDao {
 
     @Query("DELETE FROM players WHERE id = :playerId")
     suspend fun deletePlayer(playerId: Int)
+
+    @Query("SELECT MAX(id) FROM players")
+    suspend fun getMaxPlayerId(): Int?
+
+    @Query("DELETE FROM players")
+    suspend fun deleteAllPlayers()
 }

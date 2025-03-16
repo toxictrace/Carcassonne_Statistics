@@ -1,10 +1,14 @@
 package by.toxic.carstat
 
+import android.Manifest
 import android.animation.ValueAnimator
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.os.Bundle
+import android.os.Environment
+import android.provider.Settings
 import android.util.Log
 import android.view.View
 import android.view.animation.AccelerateDecelerateInterpolator
@@ -49,9 +53,11 @@ class MainActivity : AppCompatActivity() {
     private var isHidingAddButton = false
     private var isAnimating = false
     private var areNavIconsVisible = true
-    private var currentBackgroundId: Int? = null // Кэшируем ID текущего фона
+    private var currentBackgroundId: Int? = null
     lateinit var googleSignInClient: GoogleSignInClient
     private val RC_SIGN_IN = 9001
+    private var hasStoragePermission = false
+    private var permissionDialog: AlertDialog? = null
 
     private val signInLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == RESULT_OK) {
@@ -72,11 +78,138 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private val permissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+        Log.d("MainActivity", "Permission result: $isGranted")
+        hasStoragePermission = isGranted
+        if (isGranted) {
+            Log.d("MainActivity", "Storage permission granted")
+            permissionDialog?.dismiss()
+            initializeApp()
+        } else {
+            Log.d("MainActivity", "Storage permission denied")
+            showPermissionDeniedDialog()
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        Log.d("MainActivity", "onCreate: Checking storage permission")
+        checkAndRequestStorageAccess()
+    }
 
+    override fun onResume() {
+        super.onResume()
+        Log.d("MainActivity", "onResume: Re-checking storage permission")
+        checkAndRequestStorageAccess()
+    }
+
+    private fun checkAndRequestStorageAccess() {
+        val sharedPref = getPreferences(Context.MODE_PRIVATE)
+        val isFirstRun = sharedPref.getBoolean("is_first_run", true)
+
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            hasStoragePermission = Environment.isExternalStorageManager()
+            Log.d("MainActivity", "Android 11+: isExternalStorageManager = $hasStoragePermission")
+            if (!hasStoragePermission) {
+                if (isFirstRun && permissionDialog == null) {
+                    showPermissionRationaleDialog()
+                } else if (permissionDialog == null) {
+                    showPermissionDeniedDialog()
+                }
+            } else {
+                if (isFirstRun) sharedPref.edit().putBoolean("is_first_run", false).apply()
+                permissionDialog?.dismiss()
+                initializeApp()
+            }
+        } else {
+            val permission = ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
+            hasStoragePermission = permission == PackageManager.PERMISSION_GRANTED
+            Log.d("MainActivity", "Android < 11: WRITE_EXTERNAL_STORAGE granted = $hasStoragePermission")
+            if (!hasStoragePermission) {
+                if (isFirstRun || shouldShowRequestPermissionRationale(Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
+                    if (permissionDialog == null) showPermissionRationaleDialog()
+                } else {
+                    permissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                }
+            } else {
+                if (isFirstRun) sharedPref.edit().putBoolean("is_first_run", false).apply()
+                permissionDialog?.dismiss()
+                initializeApp()
+            }
+        }
+    }
+
+    fun requestStorageAccess() {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
+            intent.data = android.net.Uri.fromParts("package", packageName, null)
+            startActivity(intent)
+        } else {
+            permissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+        }
+    }
+
+    private fun showPermissionRationaleDialog() {
+        Log.d("MainActivity", "Showing permission rationale dialog")
+        val message = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            getString(R.string.storage_permission_message) + "\n\n" +
+                    "On MIUI: Go to Settings > Apps > Carcassonne Statistics > Permissions > Allow access to all files."
+        } else {
+            getString(R.string.storage_permission_message)
+        }
+        permissionDialog = AlertDialog.Builder(this)
+            .setTitle(R.string.storage_permission_title)
+            .setMessage(message)
+            .setPositiveButton(R.string.ok) { _, _ ->
+                Log.d("MainActivity", "User clicked OK in rationale dialog")
+                requestStorageAccess()
+            }
+            .setNegativeButton(R.string.cancel_button) { dialog, _ ->
+                Log.d("MainActivity", "User canceled permission request")
+                dialog.dismiss()
+                permissionDialog = null
+                initializeApp()
+            }
+            .setCancelable(false)
+            .create()
+        permissionDialog?.show()
+    }
+
+    private fun showPermissionDeniedDialog() {
+        Log.d("MainActivity", "Showing permission denied dialog")
+        val message = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            getString(R.string.permission_denied_message) + "\n\n" +
+                    "On MIUI: Go to Settings > Apps > Carcassonne Statistics > Permissions > Allow access to all files."
+        } else {
+            getString(R.string.permission_denied_message)
+        }
+        permissionDialog = AlertDialog.Builder(this)
+            .setTitle(R.string.permission_denied_title)
+            .setMessage(message)
+            .setPositiveButton(R.string.go_to_settings) { _, _ ->
+                Log.d("MainActivity", "User clicked Go to Settings")
+                requestStorageAccess()
+            }
+            .setNegativeButton(R.string.cancel_button) { dialog, _ ->
+                Log.d("MainActivity", "User canceled denied dialog")
+                dialog.dismiss()
+                permissionDialog = null
+                initializeApp()
+            }
+            .setCancelable(false)
+            .create()
+        permissionDialog?.show()
+    }
+
+    private fun initializeApp() {
+        if (::viewModel.isInitialized) {
+            Log.d("MainActivity", "App already initialized, skipping")
+            return
+        }
+
+        Log.d("MainActivity", "initializeApp: Starting app initialization with storage permission = $hasStoragePermission")
         viewModel = ViewModelProvider(this).get(GameViewModel::class.java)
 
         val sharedPref = getPreferences(Context.MODE_PRIVATE)
@@ -87,7 +220,7 @@ class MainActivity : AppCompatActivity() {
         val isDarkTheme = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
         Log.d("MainActivity", "Current theme: ${if (isDarkTheme) "Dark" else "Light"}")
 
-        setRandomBackground(isDarkTheme, isCustomBackgroundsEnabled) // Устанавливаем фон при запуске
+        setRandomBackground(isDarkTheme, isCustomBackgroundsEnabled)
 
         val normalSizeDp = 48
         val density = resources.displayMetrics.density
@@ -119,7 +252,6 @@ class MainActivity : AppCompatActivity() {
                     }
                     setupNavBarClicks(navCtrl)
                     setupBackPressedHandler(navCtrl)
-
                     navCtrl.currentDestination?.id?.let { updateNavBarIconAndAnimation(it) }
                 } ?: Log.e("MainActivity", "NavController is null!")
             } catch (e: Exception) {
@@ -132,6 +264,14 @@ class MainActivity : AppCompatActivity() {
             .requestScopes(Scope(DriveScopes.DRIVE_FILE))
             .build()
         googleSignInClient = GoogleSignIn.getClient(this, gso)
+
+        if (!hasStoragePermission) {
+            Toast.makeText(this, "Some features may be limited without storage permission", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    fun hasStoragePermission(): Boolean {
+        return hasStoragePermission
     }
 
     fun applyTheme(theme: String?) {
@@ -245,7 +385,7 @@ class MainActivity : AppCompatActivity() {
             if (isNavigationBlocked) {
                 Log.d("MainActivity", "Navigation blocked: on PlayerProfileFragment or ViewGameFragment")
             } else if (!isEditing) {
-                setRandomBackground(isDarkTheme, isCustomBackgroundsEnabled) // Устанавливаем фон перед переходом
+                setRandomBackground(isDarkTheme, isCustomBackgroundsEnabled)
                 navController.navigate(R.id.gamesFragment, null, navOptions)
             } else {
                 Log.d("MainActivity", "Navigation blocked due to editing mode")
@@ -258,7 +398,7 @@ class MainActivity : AppCompatActivity() {
             if (isNavigationBlocked) {
                 Log.d("MainActivity", "Navigation blocked: on PlayerProfileFragment or ViewGameFragment")
             } else if (!isEditing) {
-                setRandomBackground(isDarkTheme, isCustomBackgroundsEnabled) // Устанавливаем фон перед переходом
+                setRandomBackground (isDarkTheme, isCustomBackgroundsEnabled)
                 navController.navigate(R.id.playersFragment, null, navOptions)
             } else {
                 Log.d("MainActivity", "Navigation blocked due to editing mode")
@@ -331,7 +471,7 @@ class MainActivity : AppCompatActivity() {
             if (isNavigationBlocked) {
                 Log.d("MainActivity", "Navigation blocked: on PlayerProfileFragment or ViewGameFragment")
             } else if (!isEditing) {
-                setRandomBackground(isDarkTheme, isCustomBackgroundsEnabled) // Устанавливаем фон перед переходом
+                setRandomBackground(isDarkTheme, isCustomBackgroundsEnabled)
                 navController.navigate(R.id.statisticsFragment, null, navOptions)
             } else {
                 Log.d("MainActivity", "Navigation blocked due to editing mode")
@@ -344,7 +484,7 @@ class MainActivity : AppCompatActivity() {
             if (isNavigationBlocked) {
                 Log.d("MainActivity", "Navigation blocked: on PlayerProfileFragment or ViewGameFragment")
             } else if (!isEditing) {
-                setRandomBackground(isDarkTheme, isCustomBackgroundsEnabled) // Устанавливаем фон перед переходом
+                setRandomBackground(isDarkTheme, isCustomBackgroundsEnabled)
                 navController.navigate(R.id.settingsFragment, null, navOptions)
             } else {
                 Log.d("MainActivity", "Navigation blocked due to editing mode")
@@ -535,17 +675,14 @@ class MainActivity : AppCompatActivity() {
             override fun onAnimationStart(animation: android.animation.Animator) {
                 Log.d("MainActivity", "Animation started for icon: $imageView with duration: $duration")
             }
-
             override fun onAnimationEnd(animation: android.animation.Animator) {
                 isAnimating = false
                 Log.d("MainActivity", "Animation ended for icon: $imageView")
             }
-
             override fun onAnimationCancel(animation: android.animation.Animator) {
                 isAnimating = false
                 Log.d("MainActivity", "Animation canceled for icon: $imageView")
             }
-
             override fun onAnimationRepeat(animation: android.animation.Animator) {}
         })
         animator.start()

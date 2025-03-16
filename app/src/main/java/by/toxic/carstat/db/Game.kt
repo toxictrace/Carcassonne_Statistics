@@ -8,6 +8,6 @@ import kotlinx.parcelize.Parcelize
 @Parcelize
 @Entity(tableName = "games")
 data class Game(
-    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    @PrimaryKey val id: Int, // Убрано autoGenerate = true, теперь id задается вручную
     val date: String
 ) : Parcelable

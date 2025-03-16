@@ -30,17 +30,13 @@ import com.google.api.client.http.javanet.NetHttpTransport
 import com.google.api.client.json.gson.GsonFactory
 import com.google.api.services.drive.Drive
 import com.google.api.services.drive.DriveScopes
-import com.google.api.services.drive.model.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
-import java.io.BufferedReader
-import java.io.FileInputStream
-import java.io.FileOutputStream
-import java.io.InputStreamReader
+import java.io.File as JavaIoFile
 
 class SettingsFragment : Fragment() {
 
@@ -49,7 +45,7 @@ class SettingsFragment : Fragment() {
     private lateinit var mainActivity: MainActivity
     private val gameViewModel: GameViewModel by viewModels({ requireActivity() })
     private val BACKUP_FILE_NAME = "CarcassonneStatistics.backup"
-    private var lastAccountState: Boolean = false // Храним, был ли аккаунт активен (true/false)
+    private var lastAccountState: Boolean = false
 
     override fun onAttach(context: Context) {
         super.onAttach(context)
@@ -69,9 +65,44 @@ class SettingsFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         val sharedPref = requireActivity().getPreferences(Context.MODE_PRIVATE)
-        // Восстанавливаем последнее состояние аккаунта
         lastAccountState = sharedPref.getBoolean("is_account_signed_in", false)
 
+        setupThemeSpinner(sharedPref)
+
+        val isBackgroundEnabled = sharedPref.getBoolean("background_enabled", false)
+        binding.backgroundSwitch.isChecked = isBackgroundEnabled
+        mainActivity.enableCustomBackgrounds(isBackgroundEnabled)
+
+        binding.backgroundSwitch.setOnCheckedChangeListener { _, isChecked ->
+            sharedPref.edit().putBoolean("background_enabled", isChecked).apply()
+            mainActivity.enableCustomBackgrounds(isChecked)
+        }
+
+        updateStorageOptions(sharedPref)
+
+        val account = GoogleSignIn.getLastSignedInAccount(requireContext())
+        updateUI(account)
+
+        binding.googleAccountText.setOnClickListener {
+            Log.d("SettingsFragment", "Initiating Google sign-in")
+            mainActivity.signInWithGoogle()
+        }
+
+        binding.googleSignOutButton.setOnClickListener {
+            Log.d("SettingsFragment", "Initiating Google sign-out")
+            mainActivity.signOutFromGoogle()
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        val sharedPref = requireActivity().getPreferences(Context.MODE_PRIVATE)
+        updateStorageOptions(sharedPref)
+        val account = GoogleSignIn.getLastSignedInAccount(requireContext())
+        updateUI(account)
+    }
+
+    private fun setupThemeSpinner(sharedPref: android.content.SharedPreferences) {
         val themes = arrayOf(
             getString(R.string.theme_light),
             getString(R.string.theme_dark),
@@ -101,38 +132,30 @@ class SettingsFragment : Fragment() {
 
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
+    }
 
-        val isBackgroundEnabled = sharedPref.getBoolean("background_enabled", false)
-        binding.backgroundSwitch.isChecked = isBackgroundEnabled
-        mainActivity.enableCustomBackgrounds(isBackgroundEnabled)
-
-        binding.backgroundSwitch.setOnCheckedChangeListener { _, isChecked ->
-            sharedPref.edit().putBoolean("background_enabled", isChecked).apply()
-            mainActivity.enableCustomBackgrounds(isChecked)
-        }
-
-        // Восстанавливаем состояние "Save locally" из SharedPreferences
+    private fun updateStorageOptions(sharedPref: android.content.SharedPreferences) {
+        val hasStoragePermission = mainActivity.hasStoragePermission()
         val isLocalSaveEnabled = sharedPref.getBoolean("local_save_enabled", false)
-        binding.localSaveSwitch.isChecked = isLocalSaveEnabled
 
-        binding.localSaveSwitch.setOnCheckedChangeListener { _, isChecked ->
-            sharedPref.edit().putBoolean("local_save_enabled", isChecked).apply()
-            Log.d("SettingsFragment", "Local save switch changed to: $isChecked")
+        if (hasStoragePermission) {
+            binding.localSaveSwitch.visibility = View.VISIBLE
+            binding.localSaveLabel.visibility = View.VISIBLE
+            binding.saveDataButton.visibility = View.VISIBLE
+            binding.loadDataButton.visibility = View.VISIBLE
+            binding.localSaveSwitch.isChecked = isLocalSaveEnabled
+
+            binding.localSaveSwitch.setOnCheckedChangeListener { _, isChecked ->
+                sharedPref.edit().putBoolean("local_save_enabled", isChecked).apply()
+                Log.d("SettingsFragment", "Local save switch changed to: $isChecked")
+            }
+        } else {
+            binding.localSaveSwitch.visibility = View.GONE
+            binding.localSaveLabel.visibility = View.GONE
+            binding.saveDataButton.visibility = View.GONE
+            binding.loadDataButton.visibility = View.GONE
         }
-
-        val account = GoogleSignIn.getLastSignedInAccount(requireContext())
-        updateUI(account)
-        Log.d("SettingsFragment", "onViewCreated: Local save switch initialized to $isLocalSaveEnabled")
-
-        binding.googleAccountText.setOnClickListener {
-            Log.d("SettingsFragment", "Initiating Google sign-in")
-            mainActivity.signInWithGoogle()
-        }
-
-        binding.googleSignOutButton.setOnClickListener {
-            Log.d("SettingsFragment", "Initiating Google sign-out")
-            mainActivity.signOutFromGoogle()
-        }
+        Log.d("SettingsFragment", "Storage options updated: hasStoragePermission = $hasStoragePermission, isLocalSaveEnabled = $isLocalSaveEnabled")
     }
 
     fun handleSignInResult(task: Task<GoogleSignInAccount>?) {
@@ -156,9 +179,9 @@ class SettingsFragment : Fragment() {
 
     private fun updateUI(account: GoogleSignInAccount?) {
         val sharedPref = requireActivity().getPreferences(Context.MODE_PRIVATE)
+        val hasStoragePermission = mainActivity.hasStoragePermission()
         val isLocalSaveEnabled = sharedPref.getBoolean("local_save_enabled", false)
 
-        // Сохраняем текущее состояние аккаунта
         val isAccountSignedIn = account != null
         sharedPref.edit().putBoolean("is_account_signed_in", isAccountSignedIn).apply()
 
@@ -176,17 +199,15 @@ class SettingsFragment : Fragment() {
                     .placeholder(android.R.drawable.ic_menu_gallery)
                     .into(binding.googleAvatar)
             }
-            // Разрешаем пользователю менять переключатель
-            binding.localSaveSwitch.isEnabled = true
-
-            // Если пользователь только что вошёл в аккаунт (был выход, теперь вход), устанавливаем начальное состояние
-            if (!lastAccountState && isAccountSignedIn) {
-                binding.localSaveSwitch.isChecked = false
-                sharedPref.edit().putBoolean("local_save_enabled", false).apply()
-                Log.d("SettingsFragment", "Google account signed in, local save set to false")
-            } else {
-                // Восстанавливаем сохранённое состояние, если оно было изменено вручную
-                binding.localSaveSwitch.isChecked = isLocalSaveEnabled
+            if (hasStoragePermission) {
+                binding.localSaveSwitch.isEnabled = true
+                if (!lastAccountState && isAccountSignedIn) {
+                    binding.localSaveSwitch.isChecked = false
+                    sharedPref.edit().putBoolean("local_save_enabled", false).apply()
+                    Log.d("SettingsFragment", "Google account signed in, local save set to false")
+                } else {
+                    binding.localSaveSwitch.isChecked = isLocalSaveEnabled
+                }
             }
         } else {
             binding.googleAccountText.visibility = View.VISIBLE
@@ -195,35 +216,36 @@ class SettingsFragment : Fragment() {
             binding.googleSignOutButton.visibility = View.GONE
             binding.dataOptionsLayout.visibility = View.VISIBLE
 
-            // Если пользователь только что вышел из аккаунта (был вход, теперь выход), включаем переключатель
-            if (lastAccountState && !isAccountSignedIn) {
-                binding.localSaveSwitch.isChecked = true
-                binding.localSaveSwitch.isEnabled = false
-                sharedPref.edit().putBoolean("local_save_enabled", true).apply()
-                Log.d("SettingsFragment", "Google account signed out, local save forced to true")
-            } else {
-                // Когда не в аккаунте, переключатель всегда включён и неактивен
-                binding.localSaveSwitch.isChecked = true
-                binding.localSaveSwitch.isEnabled = false
-                sharedPref.edit().putBoolean("local_save_enabled", true).apply()
+            if (hasStoragePermission) {
+                if (lastAccountState && !isAccountSignedIn) {
+                    binding.localSaveSwitch.isChecked = true
+                    binding.localSaveSwitch.isEnabled = false
+                    sharedPref.edit().putBoolean("local_save_enabled", true).apply()
+                    Log.d("SettingsFragment", "Google account signed out, local save forced to true")
+                } else {
+                    binding.localSaveSwitch.isChecked = true
+                    binding.localSaveSwitch.isEnabled = false
+                    sharedPref.edit().putBoolean("local_save_enabled", true).apply()
+                }
             }
         }
 
-        // Обновляем последнее состояние аккаунта
         lastAccountState = isAccountSignedIn
 
-        binding.saveDataButton.setOnClickListener {
-            if (binding.localSaveSwitch.isChecked) {
-                saveDataLocally()
-            } else {
-                saveDataToGoogleDrive(account)
+        if (hasStoragePermission) {
+            binding.saveDataButton.setOnClickListener {
+                if (binding.localSaveSwitch.isChecked) {
+                    saveDataLocally()
+                } else {
+                    saveDataToGoogleDrive(account)
+                }
             }
-        }
-        binding.loadDataButton.setOnClickListener {
-            if (binding.localSaveSwitch.isChecked) {
-                loadDataLocally()
-            } else {
-                loadDataFromGoogleDrive(account)
+            binding.loadDataButton.setOnClickListener {
+                if (binding.localSaveSwitch.isChecked) {
+                    loadDataLocally()
+                } else {
+                    loadDataFromGoogleDrive(account)
+                }
             }
         }
     }
@@ -278,7 +300,7 @@ class SettingsFragment : Fragment() {
                                             put("gameId", gamePlayer.gameId)
                                             put("playerId", gamePlayer.playerId)
                                             put("score", gamePlayer.score)
-                                            put("color", gamePlayer.color)
+                                            put("color", gamePlayer.color ?: "")
                                         })
                                     }
                                 })
@@ -291,7 +313,7 @@ class SettingsFragment : Fragment() {
                 val encodedData = Base64.encodeToString(jsonString.toByteArray(), Base64.DEFAULT)
                 Log.d("SettingsFragment", "Data encoded to Base64: $encodedData")
 
-                val fileMetadata = File().apply {
+                val fileMetadata = com.google.api.services.drive.model.File().apply {
                     name = BACKUP_FILE_NAME
                     mimeType = "application/octet-stream"
                 }
@@ -372,7 +394,7 @@ class SettingsFragment : Fragment() {
                                             put("gameId", gamePlayer.gameId)
                                             put("playerId", gamePlayer.playerId)
                                             put("score", gamePlayer.score)
-                                            put("color", gamePlayer.color)
+                                            put("color", gamePlayer.color ?: "")
                                         })
                                     }
                                 })
@@ -386,11 +408,12 @@ class SettingsFragment : Fragment() {
                 Log.d("SettingsFragment", "Data encoded to Base64 for local save: $encodedData")
 
                 val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-                val backupFile = java.io.File(downloadsDir, BACKUP_FILE_NAME)
+                if (!downloadsDir.exists()) {
+                    downloadsDir.mkdirs()
+                }
+                val backupFile = JavaIoFile(downloadsDir, BACKUP_FILE_NAME)
                 withContext(Dispatchers.IO) {
-                    FileOutputStream(backupFile).use { fos ->
-                        fos.write(encodedData.toByteArray())
-                    }
+                    backupFile.writeText(encodedData)
                 }
 
                 withContext(Dispatchers.Main) {
@@ -436,11 +459,10 @@ class SettingsFragment : Fragment() {
                     credential
                 ).setApplicationName(getString(R.string.app_name)).build()
 
-                Log.d("SettingsFragment", "Attempting to list files created by this app")
                 val fileListRequest = driveService.files().list()
                     .setSpaces("drive")
                     .setFields("files(id, name, trashed)")
-                val file = withContext(Dispatchers.IO) {
+                val existingFile = withContext(Dispatchers.IO) {
                     val files = fileListRequest.execute().files
                     Log.d("SettingsFragment", "Files found: ${files.size}, details: ${
                         files.joinToString { "name=${it.name}, id=${it.id}, trashed=${it.trashed}" }
@@ -448,65 +470,74 @@ class SettingsFragment : Fragment() {
                     files.firstOrNull { it.name == BACKUP_FILE_NAME && it.trashed != true }
                 }
 
-                if (file == null) {
-                    Log.d("SettingsFragment", "No file named '$BACKUP_FILE_NAME' found or it is trashed")
+                if (existingFile == null) {
                     withContext(Dispatchers.Main) {
                         if (isAdded) {
                             Toast.makeText(requireContext(), getString(R.string.no_data_file_found), Toast.LENGTH_SHORT).show()
-                        } else {
-                            mainActivity.showToast(getString(R.string.no_data_file_found))
                         }
                     }
                     return@launch
                 }
 
-                Log.d("SettingsFragment", "Found file with ID: ${file.id}, attempting to load content")
                 val encodedData = withContext(Dispatchers.IO) {
-                    val inputStream = driveService.files().get(file.id).executeMediaAsInputStream()
-                    BufferedReader(InputStreamReader(inputStream)).use { it.readText() }
+                    val inputStream = driveService.files().get(existingFile.id).executeMediaAsInputStream()
+                    inputStream.bufferedReader().use { it.readText() }
                 }
-                Log.d("SettingsFragment", "Raw encoded data from Google Drive: $encodedData")
-
-                val jsonString = try {
-                    String(Base64.decode(encodedData, Base64.DEFAULT))
-                } catch (e: IllegalArgumentException) {
-                    Log.e("SettingsFragment", "Base64 decoding failed: ${e.message}")
-                    throw Exception("Invalid Base64 data from Google Drive")
-                }
-                Log.d("SettingsFragment", "Decoded JSON string: $jsonString")
-
+                val jsonString = String(Base64.decode(encodedData, Base64.DEFAULT))
                 val jsonObject = JSONObject(jsonString)
+
                 val playersArray = jsonObject.getJSONArray("players")
                 val gamesArray = jsonObject.getJSONArray("games")
-                Log.d("SettingsFragment", "Parsed JSON - Players: ${playersArray.length()}, Games: ${gamesArray.length()}")
 
                 val players = mutableListOf<Player>()
+                val playerIds = mutableSetOf<Int>()
                 for (i in 0 until playersArray.length()) {
                     val playerJson = playersArray.getJSONObject(i)
-                    players.add(Player(
-                        id = playerJson.getInt("id"),
-                        name = playerJson.getString("name"),
-                        frameId = playerJson.getInt("frameId")
-                    ))
+                    val id = playerJson.getInt("id")
+                    players.add(
+                        Player(
+                            id = id,
+                            name = playerJson.getString("name"),
+                            frameId = playerJson.getInt("frameId")
+                        )
+                    )
+                    playerIds.add(id)
                 }
 
                 val games = mutableListOf<Game>()
+                val gameIds = mutableSetOf<Int>()
+                for (i in 0 until gamesArray.length()) {
+                    val gameJson = gamesArray.getJSONObject(i)
+                    val id = gameJson.getInt("id")
+                    games.add(
+                        Game(
+                            id = id,
+                            date = gameJson.getString("date")
+                        )
+                    )
+                    gameIds.add(id)
+                }
+
                 val gamePlayers = mutableListOf<GamePlayer>()
                 for (i in 0 until gamesArray.length()) {
                     val gameJson = gamesArray.getJSONObject(i)
-                    games.add(Game(
-                        id = gameJson.getInt("id"),
-                        date = gameJson.getString("date")
-                    ))
                     val gamePlayersArray = gameJson.getJSONArray("gamePlayers")
                     for (j in 0 until gamePlayersArray.length()) {
                         val gpJson = gamePlayersArray.getJSONObject(j)
-                        gamePlayers.add(GamePlayer(
-                            gameId = gpJson.getInt("gameId"),
-                            playerId = gpJson.getInt("playerId"),
-                            score = gpJson.getInt("score"),
-                            color = if (gpJson.has("color")) gpJson.getString("color") else null
-                        ))
+                        val gameId = gpJson.getInt("gameId")
+                        val playerId = gpJson.getInt("playerId")
+                        if (gameIds.contains(gameId) && playerIds.contains(playerId)) {
+                            gamePlayers.add(
+                                GamePlayer(
+                                    gameId = gameId,
+                                    playerId = playerId,
+                                    score = gpJson.getInt("score"),
+                                    color = gpJson.getString("color").ifEmpty { null }
+                                )
+                            )
+                        } else {
+                            Log.w("SettingsFragment", "Skipping invalid GamePlayer: gameId=$gameId, playerId=$playerId not found in games or players")
+                        }
                     }
                 }
 
@@ -541,66 +572,58 @@ class SettingsFragment : Fragment() {
         lifecycleScope.launch {
             try {
                 val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-                val backupFile = java.io.File(downloadsDir, BACKUP_FILE_NAME)
+                val backupFile = JavaIoFile(downloadsDir, BACKUP_FILE_NAME)
                 if (!backupFile.exists()) {
-                    Log.d("SettingsFragment", "No local file named '$BACKUP_FILE_NAME' found")
                     withContext(Dispatchers.Main) {
                         if (isAdded) {
                             Toast.makeText(requireContext(), getString(R.string.no_local_data_file_found), Toast.LENGTH_SHORT).show()
-                        } else {
-                            mainActivity.showToast(getString(R.string.no_local_data_file_found))
                         }
                     }
                     return@launch
                 }
 
                 val encodedData = withContext(Dispatchers.IO) {
-                    FileInputStream(backupFile).use { fis ->
-                        fis.readBytes().toString(Charsets.UTF_8)
-                    }
+                    backupFile.readText()
                 }
-                Log.d("SettingsFragment", "Raw encoded data from local file: $encodedData")
-
-                val jsonString = try {
-                    String(Base64.decode(encodedData, Base64.DEFAULT))
-                } catch (e: IllegalArgumentException) {
-                    Log.e("SettingsFragment", "Base64 decoding failed: ${e.message}")
-                    throw Exception("Invalid Base64 data from local file")
-                }
-                Log.d("SettingsFragment", "Decoded JSON string: $jsonString")
-
+                val jsonString = String(Base64.decode(encodedData, Base64.DEFAULT))
                 val jsonObject = JSONObject(jsonString)
+
                 val playersArray = jsonObject.getJSONArray("players")
                 val gamesArray = jsonObject.getJSONArray("games")
-                Log.d("SettingsFragment", "Parsed JSON - Players: ${playersArray.length()}, Games: ${gamesArray.length()}")
 
                 val players = mutableListOf<Player>()
                 for (i in 0 until playersArray.length()) {
                     val playerJson = playersArray.getJSONObject(i)
-                    players.add(Player(
-                        id = playerJson.getInt("id"),
-                        name = playerJson.getString("name"),
-                        frameId = playerJson.getInt("frameId")
-                    ))
+                    players.add(
+                        Player(
+                            id = playerJson.getInt("id"),
+                            name = playerJson.getString("name"),
+                            frameId = playerJson.getInt("frameId")
+                        )
+                    )
                 }
 
                 val games = mutableListOf<Game>()
                 val gamePlayers = mutableListOf<GamePlayer>()
                 for (i in 0 until gamesArray.length()) {
                     val gameJson = gamesArray.getJSONObject(i)
-                    games.add(Game(
-                        id = gameJson.getInt("id"),
-                        date = gameJson.getString("date")
-                    ))
+                    games.add(
+                        Game(
+                            id = gameJson.getInt("id"),
+                            date = gameJson.getString("date")
+                        )
+                    )
                     val gamePlayersArray = gameJson.getJSONArray("gamePlayers")
                     for (j in 0 until gamePlayersArray.length()) {
                         val gpJson = gamePlayersArray.getJSONObject(j)
-                        gamePlayers.add(GamePlayer(
-                            gameId = gpJson.getInt("gameId"),
-                            playerId = gpJson.getInt("playerId"),
-                            score = gpJson.getInt("score"),
-                            color = if (gpJson.has("color")) gpJson.getString("color") else null
-                        ))
+                        gamePlayers.add(
+                            GamePlayer(
+                                gameId = gpJson.getInt("gameId"),
+                                playerId = gpJson.getInt("playerId"),
+                                score = gpJson.getInt("score"),
+                                color = gpJson.getString("color").ifEmpty { null }
+                            )
+                        )
                     }
                 }
 
