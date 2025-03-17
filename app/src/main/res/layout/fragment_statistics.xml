@@ -63,21 +63,57 @@
             android:layout_marginTop="8dp" />
 
         <TextView
+            android:id="@+id/longest_win_streak"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="16sp"
+            app:layout_constraintTop_toBottomOf="@id/top_players"
+            app:layout_constraintStart_toStartOf="parent"
+            android:layout_marginTop="8dp" />
+
+        <TextView
+            android:id="@+id/highest_avg_position"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="16sp"
+            app:layout_constraintTop_toBottomOf="@id/longest_win_streak"
+            app:layout_constraintStart_toStartOf="parent"
+            android:layout_marginTop="8dp" />
+
+        <TextView
+            android:id="@+id/most_frequent_second"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="16sp"
+            app:layout_constraintTop_toBottomOf="@id/highest_avg_position"
+            app:layout_constraintStart_toStartOf="parent"
+            android:layout_marginTop="8dp" />
+
+        <TextView
             android:id="@+id/compare_players_title"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/compare_players"
             android:textSize="20sp"
             android:textStyle="bold"
-            app:layout_constraintTop_toBottomOf="@id/top_players"
+            app:layout_constraintTop_toBottomOf="@id/most_frequent_second"
             app:layout_constraintStart_toStartOf="parent"
             android:layout_marginTop="16dp" />
+
+        <Spinner
+            android:id="@+id/comparison_type_spinner"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            app:layout_constraintTop_toBottomOf="@id/compare_players_title"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            android:layout_marginTop="8dp" />
 
         <Spinner
             android:id="@+id/player1_spinner"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            app:layout_constraintTop_toBottomOf="@id/compare_players_title"
+            app:layout_constraintTop_toBottomOf="@id/comparison_type_spinner"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toStartOf="@id/player2_spinner"
             android:layout_marginTop="8dp"
@@ -87,7 +123,7 @@
             android:id="@+id/player2_spinner"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            app:layout_constraintTop_toBottomOf="@id/compare_players_title"
+            app:layout_constraintTop_toBottomOf="@id/comparison_type_spinner"
             app:layout_constraintStart_toEndOf="@id/player1_spinner"
             app:layout_constraintEnd_toStartOf="@id/player3_spinner"
             android:layout_marginTop="8dp"
@@ -98,7 +134,7 @@
             android:id="@+id/player3_spinner"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            app:layout_constraintTop_toBottomOf="@id/compare_players_title"
+            app:layout_constraintTop_toBottomOf="@id/comparison_type_spinner"
             app:layout_constraintStart_toEndOf="@id/player2_spinner"
             app:layout_constraintEnd_toEndOf="parent"
             android:layout_marginTop="8dp"
@@ -115,6 +151,7 @@
             android:layout_marginTop="16dp" />
 
         <ScrollView
+            android:id="@+id/table_container"
             android:layout_width="0dp"
             android:layout_height="0dp"
             app:layout_constraintTop_toBottomOf="@id/compare_button"
@@ -129,6 +166,94 @@
                 android:layout_height="wrap_content"
                 android:stretchColumns="*" />
         </ScrollView>
+
+        <com.github.mikephil.charting.charts.BarChart
+            android:id="@+id/skill_chart"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            app:layout_constraintTop_toBottomOf="@id/compare_button"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            android:layout_marginTop="16dp"
+            android:visibility="gone" />
+
+        <com.github.mikephil.charting.charts.PieChart
+            android:id="@+id/experience_skill_chart"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            app:layout_constraintTop_toBottomOf="@id/compare_button"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            android:layout_marginTop="16dp"
+            android:visibility="gone" />
+
+        <com.github.mikephil.charting.charts.LineChart
+            android:id="@+id/stability_chart"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            app:layout_constraintTop_toBottomOf="@id/compare_button"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            android:layout_marginTop="16dp"
+            android:visibility="gone" />
+
+        <com.github.mikephil.charting.charts.LineChart
+            android:id="@+id/score_trend_chart"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            app:layout_constraintTop_toBottomOf="@id/compare_button"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            android:layout_marginTop="16dp"
+            android:visibility="gone" />
+
+        <com.github.mikephil.charting.charts.PieChart
+            android:id="@+id/wins_vs_losses_chart"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            app:layout_constraintTop_toBottomOf="@id/compare_button"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            android:layout_marginTop="16dp"
+            android:visibility="gone" />
+
+        <com.github.mikephil.charting.charts.BarChart
+            android:id="@+id/score_gap_chart"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            app:layout_constraintTop_toBottomOf="@id/compare_button"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            android:layout_marginTop="16dp"
+            android:visibility="gone" />
+
+        <com.github.mikephil.charting.charts.BarChart
+            android:id="@+id/last_place_chart"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            app:layout_constraintTop_toBottomOf="@id/compare_button"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            android:layout_marginTop="16dp"
+            android:visibility="gone" />
+
+        <com.github.mikephil.charting.charts.BarChart
+            android:id="@+id/max_min_gap_chart"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            app:layout_constraintTop_toBottomOf="@id/compare_button"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            android:layout_marginTop="16dp"
+            android:visibility="gone" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 </layout>

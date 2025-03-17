@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Существующие строки -->
     <string name="app_name">Carcassonne Statistics</string>
     <string name="hello_message">Welcome to Carcassonne Statistics!</string>
     <string name="games_title">Games</string>
@@ -125,4 +126,26 @@
     <string name="permission_denied_message">Storage permission is required to save and load data. Please enable it in settings.</string>
     <string name="go_to_settings">Go to Settings</string>
     <string name="ok">OK</string>
+    <string name="comparison_table">Table</string>
+    <string name="skill_comparison">Skill</string>
+    <string name="experience_vs_skill_comparison">Experience vs. Skill</string>
+    <string name="stability_comparison">Stability</string>
+    <string name="skill_chart_title">Skill (% Wins)</string>
+    <string name="experience_vs_skill_chart_title">Experience vs. Skill</string>
+    <string name="stability_chart_title">Stability (Std Dev)</string>
+
+    <!-- Новые строки -->
+    <string name="score_trend_comparison">Score Trend</string>
+    <string name="wins_vs_losses_comparison">Wins vs Losses</string>
+    <string name="score_gap_comparison">Score Gap from Winner</string>
+    <string name="last_place_comparison">Last Place Count</string>
+    <string name="max_min_gap_comparison">Max/Min Gap</string>
+    <string name="score_trend_chart_title">Score Trend</string>
+    <string name="wins_vs_losses_chart_title">Wins vs Losses</string>
+    <string name="score_gap_chart_title">Avg Score Gap from Winner</string>
+    <string name="last_place_chart_title">Last Place Count</string>
+    <string name="max_min_gap_chart_title">Max/Min Gap from Nearest Rival</string>
+    <string name="longest_win_streak_stat">Longest Win Streak: %1$s - %2$d</string>
+    <string name="highest_avg_position_stat">Highest Avg Position: %1$s - %2$.1f</string>
+    <string name="most_frequent_second_stat">Most Frequent 2nd: %1$s - %2$d</string>
 </resources>
