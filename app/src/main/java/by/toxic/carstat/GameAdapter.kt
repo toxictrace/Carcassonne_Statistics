@@ -1,9 +1,6 @@
 package by.toxic.carstat
 
 import android.graphics.Color
-import android.text.SpannableString
-import android.text.Spanned
-import android.text.style.ForegroundColorSpan
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -46,47 +43,41 @@ class GameAdapter(
 
     inner class GameViewHolder(private val binding: ItemGameBinding) : RecyclerView.ViewHolder(binding.root) {
         fun bind(gameWithPlayers: GameWithPlayers) {
+            // Установка фрейма в ImageView
+            binding.gameFrame.setImageResource(
+                when (gameWithPlayers.game.frameId) {
+                    1 -> R.drawable.frame1
+                    2 -> R.drawable.frame2
+                    else -> R.drawable.frame1
+                }
+            )
+
+            // Дата посередине
             binding.gameDate.text = viewModel.formatDateForDisplay(gameWithPlayers.game.date)
+
+            // Игроки с очками, по два на строку с цветами
             fragment.viewLifecycleOwner.lifecycleScope.launch {
                 viewModel.allPlayers.collectLatest { players ->
                     val sortedPlayers = gameWithPlayers.gamePlayers.sortedByDescending { it.score }
                     val playerNamesWithScores = sortedPlayers.map { gamePlayer ->
                         val player = players.find { it.id == gamePlayer.playerId }
-                        val name = player?.name ?: "Unknown"
-                        val score = gamePlayer.score
-                        val color = when (gamePlayer.color) {
-                            "Yellow" -> Color.YELLOW
-                            "Red" -> Color.RED
-                            "Green" -> Color.GREEN
-                            "Blue" -> Color.BLUE
-                            "Black" -> Color.BLACK
-                            "Gray" -> Color.GRAY
-                            else -> Color.BLACK
-                        }
-                        val fullText = "$name - $score"
-                        SpannableString(fullText).apply {
-                            setSpan(ForegroundColorSpan(color), 0, name.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-                        }
+                        val color = gamePlayer.color?.let { getColorFromName(it) } ?: Color.WHITE
+                        "<font color='#${Integer.toHexString(color).substring(2)}'>${player?.name ?: "Unknown"} - ${gamePlayer.score}</font>"
                     }
-                    val separator = ", "
-                    val totalText = playerNamesWithScores.joinToString(separator) { it.toString() }
-                    val spannableText = SpannableString(totalText)
-                    var start = 0
-                    playerNamesWithScores.forEach { spannable ->
-                        val nameLength = spannable.toString().indexOf(" - ")
-                        spannable.getSpans(0, nameLength, ForegroundColorSpan::class.java).forEach { span ->
-                            spannableText.setSpan(
-                                ForegroundColorSpan(span.foregroundColor),
-                                start,
-                                start + nameLength,
-                                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-                            )
-                        }
-                        start += spannable.length + separator.length
-                    }
-                    binding.gamePlayers.text = spannableText
+
+                    binding.playersRow1.text = fromHtml(playerNamesWithScores.take(2).joinToString("   "))
+                    binding.playersRow2.text = if (playerNamesWithScores.size > 2) {
+                        fromHtml(playerNamesWithScores.drop(2).take(2).joinToString("   "))
+                    } else ""
+                    binding.playersRow3.text = if (playerNamesWithScores.size > 4) {
+                        fromHtml(playerNamesWithScores.drop(4).joinToString("   "))
+                    } else ""
+
+                    binding.playersRow2.visibility = if (binding.playersRow2.text.isEmpty()) View.GONE else View.VISIBLE
+                    binding.playersRow3.visibility = if (binding.playersRow3.text.isEmpty()) View.GONE else View.VISIBLE
                 }
             }
+
             binding.root.setOnClickListener { onEdit(gameWithPlayers) }
             binding.root.setOnLongClickListener {
                 AlertDialog.Builder(binding.root.context)
@@ -99,8 +90,24 @@ class GameAdapter(
                     .show()
                 true
             }
-            binding.editButton.visibility = View.GONE
-            binding.deleteButton.visibility = View.GONE
+        }
+
+        // Метод для преобразования HTML-цветов
+        private fun fromHtml(html: String): android.text.Spanned {
+            return android.text.Html.fromHtml(html, android.text.Html.FROM_HTML_MODE_LEGACY)
+        }
+
+        // Получение цвета по имени из EditGameFragment
+        private fun getColorFromName(colorName: String): Int {
+            return when (colorName) {
+                "Yellow" -> Color.YELLOW
+                "Red" -> Color.RED
+                "Green" -> Color.GREEN
+                "Blue" -> Color.BLUE
+                "Black" -> Color.BLACK
+                "Gray" -> Color.GRAY
+                else -> Color.WHITE
+            }
         }
     }
 

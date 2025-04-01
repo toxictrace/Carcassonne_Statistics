@@ -14,6 +14,7 @@ import by.toxic.carstat.db.Player
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
@@ -27,7 +28,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         application,
         AppDatabase::class.java,
         "carcassonne_database"
-    ).fallbackToDestructiveMigration()
+    ).addMigrations(AppDatabase.MIGRATION_2_3, AppDatabase.MIGRATION_3_4)
+        .fallbackToDestructiveMigration()
         .build()
 
     val allGames: Flow<List<GameWithPlayers>> = db.gameDao().getAllGamesWithPlayers()
@@ -260,6 +262,27 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             val finalPlayers = db.playerDao().getAllPlayers().first()
             val finalGames = db.gameDao().getAllGamesWithPlayers().first()
             Log.d("GameViewModel", "After insertion - Players in DB: ${finalPlayers.size}, Games in DB: ${finalGames.size}")
+        }
+    }
+
+    fun filterGamesByDateRange(startDate: String?, endDate: String?): Flow<List<GameWithPlayers>> {
+        return if (startDate == null || endDate == null) {
+            allGames.map { games ->
+                games.sortedByDescending { game ->
+                    dateFormat.parse(game.game.date)?.time ?: Long.MAX_VALUE
+                }
+            }
+        } else {
+            allGames.map { games ->
+                games.filter { game ->
+                    val gameDate = dateFormat.parse(game.game.date)?.time ?: Long.MAX_VALUE
+                    val start = dateFormat.parse(startDate)?.time ?: Long.MIN_VALUE
+                    val end = dateFormat.parse(endDate)?.time ?: Long.MAX_VALUE
+                    gameDate in start..end
+                }.sortedByDescending { game ->
+                    dateFormat.parse(game.game.date)?.time ?: Long.MAX_VALUE
+                }
+            }
         }
     }
 }
